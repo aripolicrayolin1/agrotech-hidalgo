@@ -1,4 +1,3 @@
-
 "use client";
 
 import { 
@@ -42,7 +41,7 @@ export function SidebarNav() {
           <div className="bg-primary rounded-lg p-1.5">
             <Leaf className="h-6 w-6 text-white" />
           </div>
-          <span className="font-bold text-xl tracking-tight text-primary">Guardian<span className="text-foreground">Cultivo</span></span>
+          <span className="font-bold text-xl tracking-tight text-primary">Agro<span className="text-foreground">Tech</span></span>
         </div>
         <div className="hidden group-data-[collapsible=icon]:flex bg-primary rounded-lg p-1">
           <Leaf className="h-5 w-5 text-white" />

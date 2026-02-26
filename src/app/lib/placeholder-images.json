@@ -1,10 +1,9 @@
-
 {
   "placeholderImages": [
     {
       "id": "hero-farm",
       "description": "Aerial view of a green farm field in Hidalgo",
-      "imageUrl": "https://picsum.photos/seed/guardian-farm-1/1200/600",
+      "imageUrl": "https://picsum.photos/seed/agrotech-farm-1/1200/600",
       "imageHint": "green farm"
     },
     {

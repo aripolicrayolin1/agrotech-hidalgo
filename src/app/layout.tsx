@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'GuardianCultivo - Hidalgo',
+  title: 'AgroTech - Hidalgo',
   description: 'Sistema inteligente de monitoreo y diagnóstico agrícola para la región de Hidalgo.',
 };
 

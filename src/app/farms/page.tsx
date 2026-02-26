@@ -1,4 +1,3 @@
-
 "use client";
 
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
@@ -63,7 +62,7 @@ export default function FarmsPage() {
 
   // Cargar fincas al iniciar
   useEffect(() => {
-    const savedFarms = localStorage.getItem("guardian_farms");
+    const savedFarms = localStorage.getItem("agrotech_farms");
     if (savedFarms) {
       setFarms(JSON.parse(savedFarms));
     } else {
@@ -81,13 +80,13 @@ export default function FarmsPage() {
         }
       ];
       setFarms(initialFarms);
-      localStorage.setItem("guardian_farms", JSON.stringify(initialFarms));
+      localStorage.setItem("agrotech_farms", JSON.stringify(initialFarms));
     }
   }, []);
 
   const saveFarms = (updatedFarms: Farm[]) => {
     setFarms(updatedFarms);
-    localStorage.setItem("guardian_farms", JSON.stringify(updatedFarms));
+    localStorage.setItem("agrotech_farms", JSON.stringify(updatedFarms));
   };
 
   const handleAddFarm = () => {
