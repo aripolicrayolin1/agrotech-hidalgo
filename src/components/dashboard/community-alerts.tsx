@@ -26,7 +26,8 @@ interface Alert {
   severity: string;
   distance: string;
   date: string;
-  coords: { x: number; y: number }; // Posición relativa para el mapa simulado
+  lat: number;
+  lng: number;
 }
 
 export function CommunityAlerts() {
@@ -42,7 +43,7 @@ export function CommunityAlerts() {
   });
 
   useEffect(() => {
-    const initialAlerts = [
+    const initialAlerts: Alert[] = [
       {
         id: 1,
         region: "Actopan",
@@ -51,7 +52,8 @@ export function CommunityAlerts() {
         severity: "Alta",
         distance: "12km",
         date: "Hoy, 10:30 AM",
-        coords: { x: 45, y: 55 }
+        lat: 20.2687,
+        lng: -98.9413
       },
       {
         id: 2,
@@ -61,7 +63,8 @@ export function CommunityAlerts() {
         severity: "Media",
         distance: "25km",
         date: "Ayer",
-        coords: { x: 55, y: 65 }
+        lat: 20.1011,
+        lng: -98.7591
       },
       {
         id: 3,
@@ -71,7 +74,8 @@ export function CommunityAlerts() {
         severity: "Alta",
         distance: "40km",
         date: "Hace 2 días",
-        coords: { x: 35, y: 45 }
+        lat: 20.4831,
+        lng: -99.2192
       }
     ];
     const saved = localStorage.getItem("community_alerts");
@@ -88,6 +92,7 @@ export function CommunityAlerts() {
       return;
     }
 
+    // Coordenadas aproximadas para nuevos reportes en Hidalgo
     const alert: Alert = {
       id: Date.now(),
       region: newAlert.region,
@@ -96,7 +101,8 @@ export function CommunityAlerts() {
       severity: "Alta",
       distance: "Cerca de ti",
       date: "Recién reportado",
-      coords: { x: 40 + Math.random() * 20, y: 40 + Math.random() * 20 }
+      lat: 20.1 + (Math.random() * 0.4),
+      lng: -98.8 - (Math.random() * 0.4)
     };
 
     const updated = [alert, ...alerts];
@@ -165,55 +171,42 @@ export function CommunityAlerts() {
         </Button>
       </div>
 
-      {/* Mapa Interactivo de Alertas */}
+      {/* Mapa Real de Google Maps */}
       <Dialog open={isMapOpen} onOpenChange={setIsMapOpen}>
-        <DialogContent className="sm:max-w-2xl p-0 overflow-hidden border-none">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Mapa de Alertas Regionales</DialogTitle>
-            <DialogDescription>Visualización geográfica de brotes detectados en Hidalgo.</DialogDescription>
+        <DialogContent className="sm:max-w-3xl p-0 overflow-hidden border-none bg-background">
+          <DialogHeader className="p-6 pb-2">
+            <DialogTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-primary" />
+              Ubicación del Brote: {selectedAlert?.region}, Hidalgo
+            </DialogTitle>
+            <DialogDescription>
+              Visualización geográfica real del reporte comunitario.
+            </DialogDescription>
           </DialogHeader>
-          <div className="relative h-[500px] bg-emerald-50 w-full p-4">
-            <div className="absolute top-4 left-4 z-10 bg-white/90 p-3 rounded-lg shadow-md border max-w-[200px]">
-               <h3 className="font-bold text-sm text-primary mb-1">Mapa de Riesgo: Hidalgo</h3>
-               <p className="text-[10px] text-muted-foreground">Mostrando brotes confirmados en la región.</p>
-            </div>
-
-            {/* Representación Visual del Mapa de Hidalgo */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-20 pointer-events-none">
-               <svg viewBox="0 0 100 100" className="w-[80%] h-[80%] fill-primary">
-                 <path d="M30,20 Q40,10 60,15 T80,30 T70,60 T40,80 T15,60 T20,30 Z" />
-               </svg>
-            </div>
-
-            {/* Marcadores de Alerta */}
-            {alerts.map((alert) => (
-              <button
-                key={alert.id}
-                className={`absolute transition-all hover:scale-125 z-20 group`}
-                style={{ left: `${alert.coords.x}%`, top: `${alert.coords.y}%` }}
-                onClick={() => setSelectedAlert(alert)}
-              >
-                <div className={`relative flex items-center justify-center`}>
-                  <div className={`absolute h-8 w-8 rounded-full animate-ping opacity-20 ${alert.severity === 'Alta' ? 'bg-destructive' : 'bg-accent'}`} />
-                  <MapPin className={`h-6 w-6 ${alert.severity === 'Alta' ? 'text-destructive' : 'text-accent-foreground'} filter drop-shadow-md`} fill="currentColor" />
-                  <div className="absolute bottom-full mb-2 hidden group-hover:block bg-black text-white text-[10px] p-2 rounded whitespace-nowrap z-30">
-                    {alert.region}: {alert.problem}
-                  </div>
-                </div>
-              </button>
-            ))}
-
-            {/* Panel de Detalle del Marcador Seleccionado */}
+          
+          <div className="relative h-[450px] w-full bg-muted">
             {selectedAlert && (
-              <div className="absolute bottom-4 left-4 right-4 bg-white rounded-xl shadow-2xl border-t-4 border-primary p-4 animate-in slide-in-from-bottom-4 duration-300 z-40">
+              <iframe
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                loading="lazy"
+                allowFullScreen
+                src={`https://www.google.com/maps?q=${selectedAlert.lat},${selectedAlert.lng}&z=13&output=embed`}
+              />
+            )}
+            
+            {/* Overlay de información rápida sobre el mapa */}
+            {selectedAlert && (
+              <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-sm rounded-xl shadow-2xl border border-primary/20 p-4 animate-in slide-in-from-bottom-4 duration-300 z-10">
                 <div className="flex justify-between items-start mb-2">
                    <div>
                      <Badge variant={selectedAlert.severity === 'Alta' ? 'destructive' : 'secondary'} className="mb-1">
                        {selectedAlert.severity} Riesgo
                      </Badge>
-                     <h4 className="font-bold text-lg">{selectedAlert.problem}</h4>
+                     <h4 className="font-bold text-lg text-foreground">{selectedAlert.problem}</h4>
                    </div>
-                   <Button variant="ghost" size="icon" onClick={() => setSelectedAlert(null)}>
+                   <Button variant="ghost" size="icon" onClick={() => setIsMapOpen(false)}>
                      <X className="h-4 w-4" />
                    </Button>
                 </div>
@@ -228,7 +221,7 @@ export function CommunityAlerts() {
                    </div>
                    <div className="col-span-2 p-2 bg-primary/5 rounded border border-primary/10 flex items-center gap-2">
                      <Info className="h-4 w-4 text-primary" />
-                     <span className="text-xs">Afectando cultivo de: <span className="font-bold">{selectedAlert.crop}</span></span>
+                     <span className="text-xs">Cultivo afectado: <span className="font-bold text-foreground">{selectedAlert.crop}</span></span>
                    </div>
                 </div>
               </div>
