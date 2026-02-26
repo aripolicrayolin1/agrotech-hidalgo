@@ -7,7 +7,7 @@ import { SensorStats } from "@/components/dashboard/sensor-stats";
 import { AIRiskAlert } from "@/components/dashboard/ai-risk-alert";
 import { CommunityAlerts } from "@/components/dashboard/community-alerts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Activity, Bell, Info, TrendingUp, AlertTriangle, MessageSquare, CheckCircle2 } from "lucide-react";
+import { Activity, Bell, Info, TrendingUp, AlertTriangle, MessageSquare, CheckCircle2, Droplets, Thermometer } from "lucide-react";
 import Image from "next/image";
 import { 
   AreaChart, 
@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { initializeApp, getApps } from "firebase/app";
 import { getDatabase, ref, onValue } from "firebase/database";
 
@@ -57,6 +57,16 @@ const chartConfig = {
   },
 };
 
+interface Notification {
+  id: string | number;
+  title: string;
+  description: string;
+  time: string;
+  type: 'alert' | 'info' | 'message' | 'success';
+  icon: any;
+  color: string;
+}
+
 export default function Home() {
   const [sensorValues, setSensorValues] = useState({
     humidity_soil: 0,
@@ -66,54 +76,104 @@ export default function Home() {
   });
   const [isOnline, setIsOnline] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  
+  const notifiedEvents = useRef<Set<string>>(new Set());
 
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      title: "Alerta Regional: Tizón Foliar",
-      description: "Detectado en Actopan, a 12km de tu ubicación.",
-      time: "10:30 AM",
-      type: "alert",
-      icon: AlertTriangle,
-      color: "text-destructive"
-    },
-    {
-      id: 2,
-      title: "Diagnóstico IA Completado",
-      description: "Tu cultivo de Maíz muestra un índice de salud óptimo.",
-      time: "Ayer",
-      type: "info",
-      icon: CheckCircle2,
-      color: "text-primary"
-    },
-    {
-      id: 3,
-      title: "Nuevo Mensaje",
-      description: "Agropecuaria El Valle respondió a tu consulta.",
-      time: "Hace 2 días",
-      type: "message",
-      icon: MessageSquare,
-      color: "text-blue-500"
+  // Cargar notificaciones iniciales y de comunidad
+  useEffect(() => {
+    const staticNotifs: Notification[] = [
+      {
+        id: 'welcome',
+        title: "Bienvenido a AgroTech",
+        description: "Tu sistema de gestión agrícola está listo para monitorear.",
+        time: "Ahora",
+        type: "success",
+        icon: CheckCircle2,
+        color: "text-primary"
+      }
+    ];
+
+    // Cargar alertas de la comunidad desde localStorage
+    const savedCommunityAlerts = localStorage.getItem("community_alerts");
+    if (savedCommunityAlerts) {
+      const alerts = JSON.parse(savedCommunityAlerts);
+      const communityNotifs = alerts.slice(0, 3).map((a: any) => ({
+        id: `comm-${a.id}`,
+        title: `Alerta Comunitaria: ${a.region}`,
+        description: `${a.problem} en cultivo de ${a.crop}.`,
+        time: a.date,
+        type: "alert",
+        icon: AlertTriangle,
+        color: "text-destructive"
+      }));
+      setNotifications([...communityNotifs, ...staticNotifs]);
+    } else {
+      setNotifications(staticNotifs);
     }
-  ]);
+  }, []);
 
+  // Escuchar sensores y generar notificaciones dinámicas
   useEffect(() => {
     const sensorsRef = ref(db, 'sensores');
     const unsubscribe = onValue(sensorsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        setSensorValues({
+        const newValues = {
           humidity_soil: data.humedad_suelo || 0,
           temp: data.temperatura || 0,
           uv: data.uv || 0,
           humidity_air: data.humedad_aire || 0
-        });
+        };
+        setSensorValues(newValues);
         setIsOnline(true);
         setLastUpdate(new Date());
+
+        // Lógica de notificaciones dinámicas basadas en sensores
+        const dynamicNotifs: Notification[] = [];
+
+        // Alerta de Temperatura Alta
+        if (newValues.temp > 35 && !notifiedEvents.current.has('high_temp')) {
+          dynamicNotifs.push({
+            id: `temp-${Date.now()}`,
+            title: "Alerta: Temperatura Crítica",
+            description: `Se detectaron ${newValues.temp.toFixed(1)}°C en tu finca. Riesgo de estrés hídrico.`,
+            time: "Hace un momento",
+            type: "alert",
+            icon: Thermometer,
+            color: "text-orange-600"
+          });
+          notifiedEvents.current.add('high_temp');
+        } else if (newValues.temp <= 35) {
+          notifiedEvents.current.delete('high_temp');
+        }
+
+        // Alerta de Humedad Baja
+        if (newValues.humidity_soil < 20 && newValues.humidity_soil > 0 && !notifiedEvents.current.has('low_humidity')) {
+          dynamicNotifs.push({
+            id: `hum-${Date.now()}`,
+            title: "Alerta: Suelo Seco",
+            description: "La humedad del suelo bajó del 20%. Se recomienda activar riego.",
+            time: "Hace un momento",
+            type: "alert",
+            icon: Droplets,
+            color: "text-blue-600"
+          });
+          notifiedEvents.current.add('low_humidity');
+        } else if (newValues.humidity_soil >= 20) {
+          notifiedEvents.current.delete('low_humidity');
+        }
+
+        if (dynamicNotifs.length > 0) {
+          setNotifications(prev => {
+            const combined = [...dynamicNotifs, ...prev];
+            return combined.slice(0, 10); // Mantener solo las 10 más recientes
+          });
+        }
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [db]);
 
   return (
     <SidebarProvider>
@@ -129,37 +189,45 @@ export default function Home() {
               <SheetTrigger asChild>
                 <button className="relative p-2 text-muted-foreground hover:text-primary transition-colors group">
                   <Bell className="h-5 w-5 group-hover:shake" />
-                  <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-destructive rounded-full border-2 border-white"></span>
+                  {notifications.length > 0 && (
+                    <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-destructive rounded-full border-2 border-white"></span>
+                  )}
                 </button>
               </SheetTrigger>
               <SheetContent className="w-[350px] sm:w-[400px]">
                 <SheetHeader className="pb-4 border-b">
                   <SheetTitle className="flex items-center gap-2">
                     <Bell className="h-5 w-5 text-primary" />
-                    Notificaciones
+                    Notificaciones en Vivo
                   </SheetTitle>
                   <SheetDescription>
-                    Mantente al tanto de lo que pasa en tus campos y comunidad.
+                    Alertas generadas por tus sensores y la comunidad de Hidalgo.
                   </SheetDescription>
                 </SheetHeader>
                 <ScrollArea className="h-[calc(100vh-150px)] mt-4 pr-4">
                   <div className="space-y-4">
-                    {notifications.map((notif) => (
-                      <div key={notif.id} className="flex gap-4 p-4 rounded-xl border bg-card hover:bg-muted/30 transition-colors">
-                        <div className={`mt-1 p-2 rounded-full bg-muted ${notif.color}`}>
-                          <notif.icon className="h-4 w-4" />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex justify-between items-start">
-                            <h4 className="text-sm font-bold leading-none">{notif.title}</h4>
-                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">{notif.time}</span>
-                          </div>
-                          <p className="text-xs text-muted-foreground leading-relaxed">
-                            {notif.description}
-                          </p>
-                        </div>
+                    {notifications.length === 0 ? (
+                      <div className="py-12 text-center text-muted-foreground italic text-sm">
+                        No hay notificaciones recientes.
                       </div>
-                    ))}
+                    ) : (
+                      notifications.map((notif) => (
+                        <div key={notif.id} className="flex gap-4 p-4 rounded-xl border bg-card hover:bg-muted/30 transition-colors animate-in fade-in slide-in-from-right-4 duration-300">
+                          <div className={`mt-1 p-2 rounded-full bg-muted ${notif.color}`}>
+                            <notif.icon className="h-4 w-4" />
+                          </div>
+                          <div className="space-y-1 flex-1">
+                            <div className="flex justify-between items-start gap-2">
+                              <h4 className="text-sm font-bold leading-none">{notif.title}</h4>
+                              <span className="text-[10px] text-muted-foreground whitespace-nowrap">{notif.time}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                              {notif.description}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </ScrollArea>
               </SheetContent>
