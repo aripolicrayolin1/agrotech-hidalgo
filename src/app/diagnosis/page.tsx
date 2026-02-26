@@ -1,3 +1,4 @@
+
 "use client";
 
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
@@ -17,13 +18,15 @@ import {
   ShoppingBag, 
   Leaf, 
   MapPin,
-  Info
+  Info,
+  ArrowRight
 } from "lucide-react";
 import { useState } from "react";
 import { diagnoseCropDisease, type CropDiagnosisOutput } from "@/ai/flows/crop-disease-photo-diagnosis-flow";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Link from "next/link";
 
 export default function DiagnosisPage() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -235,9 +238,11 @@ export default function DiagnosisPage() {
                                   </div>
                                 </div>
                               ))}
-                              <Button className="w-full mt-2" variant="outline">
-                                <MapPin className="h-4 w-4 mr-2" /> Ver tiendas cercanas en Hidalgo
-                              </Button>
+                              <Link href="/community" className="block w-full">
+                                <Button className="w-full mt-2" variant="outline">
+                                  <MapPin className="h-4 w-4 mr-2" /> Ver tiendas cercanas en Hidalgo <ArrowRight className="ml-2 h-4 w-4" />
+                                </Button>
+                              </Link>
                             </div>
                           ) : (
                             <p className="text-sm text-center py-8 text-muted-foreground italic">No se requieren productos químicos específicos para este diagnóstico.</p>
