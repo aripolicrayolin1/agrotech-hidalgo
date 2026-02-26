@@ -1,12 +1,40 @@
 
+"use client";
+
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { SidebarNav } from "@/components/layout/sidebar-nav";
 import { SensorStats } from "@/components/dashboard/sensor-stats";
 import { AIRiskAlert } from "@/components/dashboard/ai-risk-alert";
 import { CommunityAlerts } from "@/components/dashboard/community-alerts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Bell, Info } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Activity, Bell, Info, TrendingUp } from "lucide-react";
 import Image from "next/image";
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer 
+} from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+
+const performanceData = [
+  { month: "Ene", health: 85 },
+  { month: "Feb", health: 88 },
+  { month: "Mar", health: 92 },
+  { month: "Abr", health: 80 },
+  { month: "May", health: 85 },
+  { month: "Jun", health: 90 },
+];
+
+const chartConfig = {
+  health: {
+    label: "Salud del Cultivo (%)",
+    color: "hsl(var(--primary))",
+  },
+};
 
 export default function Home() {
   return (
@@ -58,13 +86,47 @@ export default function Home() {
               
               <Card className="border-none shadow-md">
                 <CardHeader>
-                  <CardTitle className="text-lg">Historial de Rendimiento</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    Historial de Rendimiento
+                  </CardTitle>
+                  <CardDescription>Índice de salud de cultivos por mes</CardDescription>
                 </CardHeader>
-                <CardContent className="h-[200px] flex items-center justify-center text-muted-foreground bg-muted/20 rounded-lg mx-6 mb-6">
-                  <div className="text-center">
-                    <Activity className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                    <p className="text-sm">Gráfico de tendencias temporales (Próximamente)</p>
-                  </div>
+                <CardContent className="h-[250px] w-full pb-6">
+                  <ChartContainer config={chartConfig}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={performanceData}>
+                        <defs>
+                          <linearGradient id="colorHealth" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
+                        <XAxis 
+                          dataKey="month" 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{fill: 'hsl(var(--muted-foreground))', fontSize: 12}} 
+                        />
+                        <YAxis 
+                          axisLine={false} 
+                          tickLine={false} 
+                          domain={[0, 100]}
+                          tick={{fill: 'hsl(var(--muted-foreground))', fontSize: 12}}
+                        />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Area 
+                          type="monotone" 
+                          dataKey="health" 
+                          stroke="hsl(var(--primary))" 
+                          strokeWidth={3}
+                          fillOpacity={1} 
+                          fill="url(#colorHealth)" 
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
                 </CardContent>
               </Card>
             </div>
