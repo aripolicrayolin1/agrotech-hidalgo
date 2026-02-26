@@ -7,7 +7,7 @@ import { SensorStats } from "@/components/dashboard/sensor-stats";
 import { AIRiskAlert } from "@/components/dashboard/ai-risk-alert";
 import { CommunityAlerts } from "@/components/dashboard/community-alerts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Activity, Bell, Info, TrendingUp } from "lucide-react";
+import { Activity, Bell, Info, TrendingUp, AlertTriangle, MessageSquare, CheckCircle2 } from "lucide-react";
 import Image from "next/image";
 import { 
   AreaChart, 
@@ -19,6 +19,17 @@ import {
   ResponsiveContainer 
 } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetHeader, 
+  SheetTitle, 
+  SheetTrigger,
+  SheetDescription 
+} from "@/components/ui/sheet";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useState, useEffect } from "react";
 
 const performanceData = [
   { month: "Ene", health: 85 },
@@ -37,6 +48,36 @@ const chartConfig = {
 };
 
 export default function Home() {
+  const [notifications, setNotifications] = useState([
+    {
+      id: 1,
+      title: "Alerta Regional: Tizón Foliar",
+      description: "Detectado en Actopan, a 12km de tu ubicación.",
+      time: "10:30 AM",
+      type: "alert",
+      icon: AlertTriangle,
+      color: "text-destructive"
+    },
+    {
+      id: 2,
+      title: "Diagnóstico IA Completado",
+      description: "Tu cultivo de Maíz muestra un índice de salud óptimo.",
+      time: "Ayer",
+      type: "info",
+      icon: CheckCircle2,
+      color: "text-primary"
+    },
+    {
+      id: 3,
+      title: "Nuevo Mensaje",
+      description: "Agropecuaria El Valle respondió a tu consulta.",
+      time: "Hace 2 días",
+      type: "message",
+      icon: MessageSquare,
+      color: "text-blue-500"
+    }
+  ]);
+
   return (
     <SidebarProvider>
       <SidebarNav />
@@ -47,10 +88,52 @@ export default function Home() {
             <h1 className="text-xl font-bold">Resumen de Gestión</h1>
           </div>
           <div className="flex items-center gap-4">
-            <button className="relative p-2 text-muted-foreground hover:text-primary transition-colors">
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-destructive rounded-full border-2 border-white"></span>
-            </button>
+            <Sheet>
+              <SheetTrigger asChild>
+                <button className="relative p-2 text-muted-foreground hover:text-primary transition-colors group">
+                  <Bell className="h-5 w-5 group-hover:shake" />
+                  <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-destructive rounded-full border-2 border-white"></span>
+                </button>
+              </SheetTrigger>
+              <SheetContent className="w-[350px] sm:w-[400px]">
+                <SheetHeader className="pb-4 border-b">
+                  <SheetTitle className="flex items-center gap-2">
+                    <Bell className="h-5 w-5 text-primary" />
+                    Notificaciones
+                  </SheetTitle>
+                  <SheetDescription>
+                    Mantente al tanto de lo que pasa en tus campos y comunidad.
+                  </SheetDescription>
+                </SheetHeader>
+                <ScrollArea className="h-[calc(100vh-150px)] mt-4 pr-4">
+                  <div className="space-y-4">
+                    {notifications.map((notif) => (
+                      <div key={notif.id} className="flex gap-4 p-4 rounded-xl border bg-card hover:bg-muted/30 transition-colors">
+                        <div className={`mt-1 p-2 rounded-full bg-muted ${notif.color}`}>
+                          <notif.icon className="h-4 w-4" />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-start">
+                            <h4 className="text-sm font-bold leading-none">{notif.title}</h4>
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">{notif.time}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">
+                            {notif.description}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    {notifications.length === 0 && (
+                      <div className="text-center py-12">
+                        <Bell className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" />
+                        <p className="text-sm text-muted-foreground">No tienes notificaciones pendientes.</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </SheetContent>
+            </Sheet>
+
             <div className="flex items-center gap-2 border-l pl-4">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold">Juan Pérez</p>
