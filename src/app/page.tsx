@@ -33,7 +33,6 @@ import { useState, useEffect, useRef } from "react";
 import { initializeApp, getApps } from "firebase/app";
 import { getDatabase, ref, onValue } from "firebase/database";
 
-// Configuración de Firebase Realtime Database
 const firebaseConfig = {
   databaseURL: "https://studio-3066950614-ac5b0-default-rtdb.firebaseio.com",
 };
@@ -80,7 +79,6 @@ export default function Home() {
   
   const notifiedEvents = useRef<Set<string>>(new Set());
 
-  // Cargar notificaciones iniciales y de comunidad
   useEffect(() => {
     const staticNotifs: Notification[] = [
       {
@@ -94,7 +92,6 @@ export default function Home() {
       }
     ];
 
-    // Cargar alertas de la comunidad desde localStorage
     const savedCommunityAlerts = localStorage.getItem("community_alerts");
     if (savedCommunityAlerts) {
       const alerts = JSON.parse(savedCommunityAlerts);
@@ -113,32 +110,36 @@ export default function Home() {
     }
   }, []);
 
-  // Escuchar sensores y generar notificaciones dinámicas
   useEffect(() => {
     const sensorsRef = ref(db, 'sensores');
     const unsubscribe = onValue(sensorsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
+        // Soporte robusto para múltiples nombres de variables
+        const rawTemp = data.temperatura ?? data.temp ?? data.temperature ?? 0;
+        const rawHumidity = data.humedad_suelo ?? data.humidity ?? data.humidity_soil ?? data.humedad ?? 0;
+        const rawUV = data.uv ?? data.uvRadiation ?? 0;
+        const rawAir = data.humedad_aire ?? data.air ?? data.air_humidity ?? 0;
+
         const newValues = {
-          humidity_soil: data.humedad_suelo || 0,
-          temp: data.temperatura || 0,
-          uv: data.uv || 0,
-          humidity_air: data.humedad_aire || 0
+          humidity_soil: Number(rawHumidity),
+          temp: Number(rawTemp),
+          uv: Number(rawUV),
+          humidity_air: Number(rawAir)
         };
+        
         setSensorValues(newValues);
         setIsOnline(true);
         setLastUpdate(new Date());
 
-        // Lógica de notificaciones dinámicas basadas en sensores
         const dynamicNotifs: Notification[] = [];
 
-        // Alerta de Temperatura Alta
         if (newValues.temp > 35 && !notifiedEvents.current.has('high_temp')) {
           dynamicNotifs.push({
             id: `temp-${Date.now()}`,
             title: "Alerta: Temperatura Crítica",
-            description: `Se detectaron ${newValues.temp.toFixed(1)}°C en tu finca. Riesgo de estrés hídrico.`,
-            time: "Hace un momento",
+            description: `Se detectaron ${newValues.temp.toFixed(1)}°C. Riesgo de estrés hídrico.`,
+            time: "Ahora",
             type: "alert",
             icon: Thermometer,
             color: "text-orange-600"
@@ -148,38 +149,19 @@ export default function Home() {
           notifiedEvents.current.delete('high_temp');
         }
 
-        // Alerta de Humedad Baja
-        if (newValues.humidity_soil < 20 && newValues.humidity_soil > 0 && !notifiedEvents.current.has('low_humidity')) {
-          dynamicNotifs.push({
-            id: `hum-${Date.now()}`,
-            title: "Alerta: Suelo Seco",
-            description: "La humedad del suelo bajó del 20%. Se recomienda activar riego.",
-            time: "Hace un momento",
-            type: "alert",
-            icon: Droplets,
-            color: "text-blue-600"
-          });
-          notifiedEvents.current.add('low_humidity');
-        } else if (newValues.humidity_soil >= 20) {
-          notifiedEvents.current.delete('low_humidity');
-        }
-
         if (dynamicNotifs.length > 0) {
-          setNotifications(prev => {
-            const combined = [...dynamicNotifs, ...prev];
-            return combined.slice(0, 10); // Mantener solo las 10 más recientes
-          });
+          setNotifications(prev => [...dynamicNotifs, ...prev].slice(0, 10));
         }
       }
     });
     return () => unsubscribe();
-  }, [db]);
+  }, []);
 
   return (
     <SidebarProvider>
       <SidebarNav />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center justify-between px-6 transition-[width,height] ease-linear border-b bg-white/80 backdrop-blur-md sticky top-0 z-10">
+        <header className="flex h-16 shrink-0 items-center justify-between px-6 border-b bg-white/80 backdrop-blur-md sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <SidebarTrigger />
             <h1 className="text-xl font-bold">Resumen de Gestión</h1>
@@ -201,14 +183,14 @@ export default function Home() {
                     Notificaciones en Vivo
                   </SheetTitle>
                   <SheetDescription>
-                    Alertas generadas por tus sensores y la comunidad de Hidalgo.
+                    Alertas generadas por tus sensores y la comunidad.
                   </SheetDescription>
                 </SheetHeader>
                 <ScrollArea className="h-[calc(100vh-150px)] mt-4 pr-4">
                   <div className="space-y-4">
                     {notifications.length === 0 ? (
                       <div className="py-12 text-center text-muted-foreground italic text-sm">
-                        No hay notificaciones recientes.
+                        Sin notificaciones nuevas.
                       </div>
                     ) : (
                       notifications.map((notif) => (
@@ -270,9 +252,8 @@ export default function Home() {
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
                     <TrendingUp className="h-5 w-5 text-primary" />
-                    Historial de Rendimiento
+                    Historial de Salud
                   </CardTitle>
-                  <CardDescription>Índice de salud de cultivos por mes</CardDescription>
                 </CardHeader>
                 <CardContent className="h-fit w-full pb-6">
                   <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
@@ -323,7 +304,7 @@ export default function Home() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm leading-relaxed opacity-90">
-                    La rotación de cultivos de maíz con leguminosas en la zona de Hidalgo ayuda a fijar nitrógeno de forma natural, reduciendo la necesidad de fertilizantes químicos.
+                    La rotación de cultivos en Hidalgo mejora la calidad del suelo y reduce plagas naturalmente.
                   </p>
                 </CardContent>
               </Card>

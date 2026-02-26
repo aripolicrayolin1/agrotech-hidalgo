@@ -10,8 +10,6 @@ import {
   XAxis, 
   YAxis, 
   CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
   AreaChart,
   Area
 } from "recharts";
@@ -22,7 +20,6 @@ import { useState, useEffect, useRef } from "react";
 import { initializeApp, getApps } from "firebase/app";
 import { getDatabase, ref, onValue } from "firebase/database";
 
-// Configuración de Firebase Realtime Database
 const firebaseConfig = {
   databaseURL: "https://studio-3066950614-ac5b0-default-rtdb.firebaseio.com",
 };
@@ -52,8 +49,6 @@ export default function MonitoringPage() {
   const [isOnline, setIsOnline] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [events, setEvents] = useState<{time: string, event: string, status: string}[]>([]);
-
-  // Referencia para no añadir duplicados si el tiempo es el mismo
   const lastTimeRef = useRef<string>("");
 
   useEffect(() => {
@@ -67,28 +62,30 @@ export default function MonitoringPage() {
         if (timeStr === lastTimeRef.current) return;
         lastTimeRef.current = timeStr;
 
-        // Normalizamos la humedad para que no rompa el gráfico (0-100)
+        // Soporte para múltiples nombres de variables (Inglés/Español)
+        const rawTemp = data.temperatura ?? data.temp ?? data.temperature ?? 0;
+        const rawHumidity = data.humedad_suelo ?? data.humidity ?? data.humidity_soil ?? data.humedad ?? 0;
+
         const newPoint = {
-          time: timeStr.split(' ')[0],
-          temp: data.temperatura || 0,
-          humidity: Math.max(0, Math.min(100, data.humedad_suelo || 0))
+          time: timeStr,
+          temp: Number(rawTemp),
+          humidity: Math.max(0, Math.min(100, Number(rawHumidity)))
         };
 
         setHistory(prev => {
           const updated = [...prev, newPoint];
-          return updated.slice(-15);
+          return updated.slice(-20); // Guardar un poco más de historial para mejores líneas
         });
 
         setIsOnline(true);
         setLastUpdate(now);
 
-        if (data.temperatura > 30) {
-          const newEvent = { 
+        if (newPoint.temp > 35) {
+          setEvents(prev => [{ 
             time: timeStr, 
-            event: `Pico de calor detectado (${data.temperatura.toFixed(1)}°C)`, 
+            event: `Alerta: Calor extremo (${newPoint.temp.toFixed(1)}°C)`, 
             status: "Atención" 
-          };
-          setEvents(prev => [newEvent, ...prev].slice(0, 5));
+          }, ...prev].slice(0, 5));
         }
       }
     });
@@ -106,10 +103,6 @@ export default function MonitoringPage() {
             <h1 className="text-xl font-bold">Monitoreo de Sensores</h1>
           </div>
           <div className="flex items-center gap-3">
-             <div className="hidden md:flex flex-col items-end mr-2">
-                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Sincronización</p>
-                <p className="text-xs font-mono">{lastUpdate ? lastUpdate.toLocaleTimeString() : '--:--:--'}</p>
-             </div>
              <Badge variant={isOnline ? "default" : "secondary"} className="gap-1.5 py-1 px-3">
               {isOnline ? (
                 <>
@@ -128,10 +121,7 @@ export default function MonitoringPage() {
 
         <main className="flex-1 p-4 md:p-8 space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
-            <Card className="border-none shadow-lg overflow-hidden relative">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Thermometer className="h-24 w-24 text-orange-500" />
-              </div>
+            <Card className="border-none shadow-lg overflow-hidden">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Thermometer className="h-5 w-5 text-orange-500" />
@@ -140,10 +130,10 @@ export default function MonitoringPage() {
                 <CardDescription>Lecturas en tiempo real (°C)</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="w-full">
+                <div className="h-[300px] w-full mt-4">
                   {history.length > 0 ? (
-                    <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
-                      <AreaChart data={history}>
+                    <ChartContainer config={chartConfig} className="h-full w-full">
+                      <AreaChart data={history} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <defs>
                           <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="var(--color-temp)" stopOpacity={0.3}/>
@@ -156,6 +146,7 @@ export default function MonitoringPage() {
                           axisLine={false}
                           tickLine={false}
                           tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                          minTickGap={30}
                         />
                         <YAxis 
                           axisLine={false}
@@ -170,25 +161,22 @@ export default function MonitoringPage() {
                           stroke="var(--color-temp)" 
                           fillOpacity={1} 
                           fill="url(#colorTemp)" 
-                          strokeWidth={2}
-                          animationDuration={300}
+                          strokeWidth={3}
+                          isAnimationActive={false}
                         />
                       </AreaChart>
                     </ChartContainer>
                   ) : (
-                    <div className="h-[250px] flex flex-col items-center justify-center text-muted-foreground space-y-2">
-                      <RefreshCw className="h-8 w-8 animate-spin-slow opacity-20" />
-                      <p className="text-sm italic">Esperando datos de Wokwi...</p>
+                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground bg-muted/10 rounded-lg border-2 border-dashed">
+                      <RefreshCw className="h-8 w-8 animate-spin-slow opacity-20 mb-2" />
+                      <p className="text-sm italic">Sincronizando con Wokwi...</p>
                     </div>
                   )}
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-none shadow-lg overflow-hidden relative">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Droplets className="h-24 w-24 text-blue-500" />
-              </div>
+            <Card className="border-none shadow-lg overflow-hidden">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Droplets className="h-5 w-5 text-blue-500" />
@@ -197,16 +185,17 @@ export default function MonitoringPage() {
                 <CardDescription>Lecturas en tiempo real (%)</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="w-full">
+                <div className="h-[300px] w-full mt-4">
                   {history.length > 0 ? (
-                    <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
-                      <LineChart data={history}>
+                    <ChartContainer config={chartConfig} className="h-full w-full">
+                      <LineChart data={history} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
                         <XAxis 
                           dataKey="time" 
                           axisLine={false}
                           tickLine={false}
                           tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                          minTickGap={30}
                         />
                         <YAxis 
                           axisLine={false}
@@ -219,17 +208,17 @@ export default function MonitoringPage() {
                           type="monotone" 
                           dataKey="humidity" 
                           stroke="var(--color-humidity)" 
-                          strokeWidth={3}
-                          dot={{ fill: 'var(--color-humidity)', r: 3 }}
-                          activeDot={{ r: 5, strokeWidth: 0 }}
-                          animationDuration={300}
+                          strokeWidth={4}
+                          dot={{ fill: 'var(--color-humidity)', r: 4 }}
+                          activeDot={{ r: 6, strokeWidth: 0 }}
+                          isAnimationActive={false}
                         />
                       </LineChart>
                     </ChartContainer>
                   ) : (
-                    <div className="h-[250px] flex flex-col items-center justify-center text-muted-foreground space-y-2">
-                      <RefreshCw className="h-8 w-8 animate-spin-slow opacity-20" />
-                      <p className="text-sm italic">Esperando datos de Wokwi...</p>
+                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground bg-muted/10 rounded-lg border-2 border-dashed">
+                      <RefreshCw className="h-8 w-8 animate-spin-slow opacity-20 mb-2" />
+                      <p className="text-sm italic">Sincronizando con Wokwi...</p>
                     </div>
                   )}
                 </div>
@@ -241,24 +230,23 @@ export default function MonitoringPage() {
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                Resumen de Condiciones Críticas
+                Eventos Críticos Recientes
               </CardTitle>
-              <CardDescription>Eventos detectados automáticamente por los sensores</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {events.length === 0 ? (
-                  <div className="py-8 text-center text-muted-foreground italic text-sm">
-                    No se han detectado anomalías recientes en las lecturas.
+                  <div className="py-6 text-center text-muted-foreground text-sm italic">
+                    No se han detectado anomalías. El sistema funciona correctamente.
                   </div>
                 ) : (
                   events.map((item, i) => (
-                    <div key={i} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div key={i} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-primary/10">
                       <div className="flex items-center gap-4">
-                        <span className="text-[10px] font-bold text-muted-foreground w-16">{item.time}</span>
+                        <span className="text-[10px] font-bold text-muted-foreground">{item.time}</span>
                         <p className="text-sm font-medium">{item.event}</p>
                       </div>
-                      <Badge variant={item.status === 'Atención' ? 'secondary' : 'outline'}>{item.status}</Badge>
+                      <Badge variant="secondary">{item.status}</Badge>
                     </div>
                   ))
                 )}
