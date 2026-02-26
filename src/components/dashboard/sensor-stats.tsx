@@ -24,11 +24,14 @@ export function SensorStats() {
     air: 45
   });
 
-  const [lastUpdate, setLastUpdate] = useState(new Date());
+  // Para evitar errores de hidratación, inicializamos la fecha como null
+  // y la establecemos solo una vez que el componente se monta en el cliente.
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  // Este efecto simula la "escucha" de un sensor real. 
-  // En una conexión real, aquí usaríamos onSnapshot de Firebase.
   useEffect(() => {
+    // Establecemos la hora inicial en el cliente
+    setLastUpdate(new Date());
+
     const interval = setInterval(() => {
       setSensorValues(prev => ({
         humidity: Math.min(100, Math.max(0, prev.humidity + (Math.random() * 2 - 1))),
@@ -37,7 +40,7 @@ export function SensorStats() {
         air: Math.min(100, Math.max(0, prev.air + (Math.random() * 1 - 0.5))),
       }));
       setLastUpdate(new Date());
-    }, 3000); // Se actualiza cada 3 segundos como un sensor real
+    }, 3000); 
 
     return () => clearInterval(interval);
   }, []);
@@ -77,7 +80,7 @@ export function SensorStats() {
       </div>
       <div className="flex justify-end items-center gap-1 text-[10px] text-muted-foreground px-1">
         <RefreshCw className="h-3 w-3 animate-spin-slow" />
-        Sincronizado con estación local: {lastUpdate.toLocaleTimeString()}
+        Sincronizado con estación local: {lastUpdate ? lastUpdate.toLocaleTimeString() : "--:--:--"}
       </div>
     </div>
   );
