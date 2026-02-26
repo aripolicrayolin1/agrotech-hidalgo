@@ -274,9 +274,8 @@ export default function Home() {
                   </CardTitle>
                   <CardDescription>Índice de salud de cultivos por mes</CardDescription>
                 </CardHeader>
-                <CardContent className="h-[250px] w-full pb-6">
-                  <ChartContainer config={chartConfig}>
-                    <ResponsiveContainer width="100%" height="100%">
+                <CardContent className="h-fit w-full pb-6">
+                  <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
                       <AreaChart data={performanceData}>
                         <defs>
                           <linearGradient id="colorHealth" x1="0" y1="0" x2="0" y2="1">
@@ -307,7 +306,6 @@ export default function Home() {
                           fill="url(#colorHealth)" 
                         />
                       </AreaChart>
-                    </ResponsiveContainer>
                   </ChartContainer>
                 </CardContent>
               </Card>

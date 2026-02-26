@@ -67,22 +67,21 @@ export default function MonitoringPage() {
         if (timeStr === lastTimeRef.current) return;
         lastTimeRef.current = timeStr;
 
+        // Normalizamos la humedad para que no rompa el gráfico (0-100)
         const newPoint = {
-          time: timeStr.split(' ')[0], // Solo la parte de la hora
+          time: timeStr.split(' ')[0],
           temp: data.temperatura || 0,
-          humidity: data.humedad_suelo || 0
+          humidity: Math.max(0, Math.min(100, data.humedad_suelo || 0))
         };
 
         setHistory(prev => {
           const updated = [...prev, newPoint];
-          // Mantener los últimos 15 puntos para que el gráfico no se amontone
           return updated.slice(-15);
         });
 
         setIsOnline(true);
         setLastUpdate(now);
 
-        // Lógica simple de eventos basada en umbrales
         if (data.temperatura > 30) {
           const newEvent = { 
             time: timeStr, 
@@ -141,45 +140,43 @@ export default function MonitoringPage() {
                 <CardDescription>Lecturas en tiempo real (°C)</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px] w-full">
+                <div className="w-full">
                   {history.length > 0 ? (
-                    <ChartContainer config={chartConfig}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={history}>
-                          <defs>
-                            <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="var(--color-temp)" stopOpacity={0.3}/>
-                              <stop offset="95%" stopColor="var(--color-temp)" stopOpacity={0}/>
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                          <XAxis 
-                            dataKey="time" 
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-                          />
-                          <YAxis 
-                            axisLine={false}
-                            tickLine={false}
-                            domain={[0, 60]}
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-                          />
-                          <ChartTooltip content={<ChartTooltipContent />} />
-                          <Area 
-                            type="monotone" 
-                            dataKey="temp" 
-                            stroke="var(--color-temp)" 
-                            fillOpacity={1} 
-                            fill="url(#colorTemp)" 
-                            strokeWidth={2}
-                            animationDuration={300}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
+                    <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
+                      <AreaChart data={history}>
+                        <defs>
+                          <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="var(--color-temp)" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="var(--color-temp)" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
+                        <XAxis 
+                          dataKey="time" 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                        />
+                        <YAxis 
+                          axisLine={false}
+                          tickLine={false}
+                          domain={[0, 60]}
+                          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                        />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Area 
+                          type="monotone" 
+                          dataKey="temp" 
+                          stroke="var(--color-temp)" 
+                          fillOpacity={1} 
+                          fill="url(#colorTemp)" 
+                          strokeWidth={2}
+                          animationDuration={300}
+                        />
+                      </AreaChart>
                     </ChartContainer>
                   ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground space-y-2">
+                    <div className="h-[250px] flex flex-col items-center justify-center text-muted-foreground space-y-2">
                       <RefreshCw className="h-8 w-8 animate-spin-slow opacity-20" />
                       <p className="text-sm italic">Esperando datos de Wokwi...</p>
                     </div>
@@ -200,39 +197,37 @@ export default function MonitoringPage() {
                 <CardDescription>Lecturas en tiempo real (%)</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px] w-full">
+                <div className="w-full">
                   {history.length > 0 ? (
-                    <ChartContainer config={chartConfig}>
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={history}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                          <XAxis 
-                            dataKey="time" 
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-                          />
-                          <YAxis 
-                            axisLine={false}
-                            tickLine={false}
-                            domain={[0, 100]}
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-                          />
-                          <ChartTooltip content={<ChartTooltipContent />} />
-                          <Line 
-                            type="monotone" 
-                            dataKey="humidity" 
-                            stroke="var(--color-humidity)" 
-                            strokeWidth={3}
-                            dot={{ fill: 'var(--color-humidity)', r: 3 }}
-                            activeDot={{ r: 5, strokeWidth: 0 }}
-                            animationDuration={300}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
+                    <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
+                      <LineChart data={history}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
+                        <XAxis 
+                          dataKey="time" 
+                          axisLine={false}
+                          tickLine={false}
+                          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                        />
+                        <YAxis 
+                          axisLine={false}
+                          tickLine={false}
+                          domain={[0, 100]}
+                          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                        />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Line 
+                          type="monotone" 
+                          dataKey="humidity" 
+                          stroke="var(--color-humidity)" 
+                          strokeWidth={3}
+                          dot={{ fill: 'var(--color-humidity)', r: 3 }}
+                          activeDot={{ r: 5, strokeWidth: 0 }}
+                          animationDuration={300}
+                        />
+                      </LineChart>
                     </ChartContainer>
                   ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground space-y-2">
+                    <div className="h-[250px] flex flex-col items-center justify-center text-muted-foreground space-y-2">
                       <RefreshCw className="h-8 w-8 animate-spin-slow opacity-20" />
                       <p className="text-sm italic">Esperando datos de Wokwi...</p>
                     </div>
