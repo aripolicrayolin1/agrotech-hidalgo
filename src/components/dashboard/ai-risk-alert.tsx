@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -25,15 +24,18 @@ export function AIRiskAlert({ sensorValues }: AIRiskAlertProps) {
 
   useEffect(() => {
     async function getPrediction() {
-      // Evitar análisis redundantes si los valores no han cambiado significativamente
-      const currentValuesKey = `${Math.round(sensorValues.humidity_soil)}-${Math.round(sensorValues.temp)}`;
+      // Normalización local para el key de comparación
+      const normalizedHumidity = Math.max(0, Math.min(100, sensorValues.humidity_soil));
+      const normalizedTemp = Math.max(-10, Math.min(60, sensorValues.temp));
+      
+      const currentValuesKey = `${Math.round(normalizedHumidity)}-${Math.round(normalizedTemp)}`;
       if (lastAnalyzedValues.current === currentValuesKey && prediction) return;
 
       setUpdating(true);
       try {
         const result = await predictivePestDiseaseAlerts({
-          soilHumidity: sensorValues.humidity_soil,
-          temperature: sensorValues.temp,
+          soilHumidity: normalizedHumidity,
+          temperature: normalizedTemp,
           uvRadiation: sensorValues.uv,
           cropType: "Maíz",
           region: "Hidalgo"
@@ -48,7 +50,7 @@ export function AIRiskAlert({ sensorValues }: AIRiskAlertProps) {
       }
     }
 
-    // Debounce de 2 segundos para no agotar la cuota de IA en cambios rápidos de Wokwi
+    // Debounce de 2 segundos para no agotar la cuota de IA
     const timeout = setTimeout(getPrediction, 2000);
     return () => clearTimeout(timeout);
   }, [sensorValues, prediction]);

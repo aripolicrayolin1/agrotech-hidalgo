@@ -11,9 +11,9 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const PredictiveAlertInputSchema = z.object({
-  soilHumidity: z.number().min(0).max(100).describe('Current soil humidity percentage (0-100%).'),
+  soilHumidity: z.number().describe('Current soil humidity percentage (0-100%).'),
   temperature: z.number().describe('Current ambient temperature in Celsius.'),
-  uvRadiation: z.number().min(0).describe('Current UV radiation index or intensity.'),
+  uvRadiation: z.number().describe('Current UV radiation index or intensity.'),
   cropType: z.string().describe('The type of crop being monitored (e.g., "Maíz", "Frijol").'),
   region: z.string().describe('The agricultural region where the sensors are located (e.g., "Hidalgo").'),
 });
@@ -41,7 +41,7 @@ const prompt = ai.definePrompt({
   output: {schema: PredictiveAlertOutputSchema},
   prompt: `Eres un agrónomo experto especializado en agricultura de precisión en la región de {{region}}. Tu tarea es analizar los datos de sensores en tiempo real para el cultivo de {{cropType}} y predecir posibles infestaciones de plagas o enfermedades fúngicas.
 
-Datos actuales de los sensores:
+Datos actuales de los sensores (normalizados):
 - Humedad del suelo: {{{soilHumidity}}}%
 - Temperatura: {{{temperature}}}°C
 - Radiación UV: {{{uvRadiation}}}
@@ -58,15 +58,23 @@ const predictiveAlertFlow = ai.defineFlow(
     outputSchema: PredictiveAlertOutputSchema,
   },
   async (input) => {
+    // Normalización/Clamping de valores para evitar errores de validación de IA
+    const sanitizedInput = {
+      ...input,
+      soilHumidity: Math.max(0, Math.min(100, input.soilHumidity)),
+      temperature: Math.max(-10, Math.min(60, input.temperature)),
+      uvRadiation: Math.max(0, input.uvRadiation),
+    };
+
     try {
-      const {output} = await prompt(input);
+      const {output} = await prompt(sanitizedInput);
       return { ...output!, isFallback: false };
     } catch (e: any) {
       console.warn("AI Quota exhausted or error occurred. Using fallback logic.");
       
       // Lógica de respaldo (Heurística básica)
-      const highHumidity = input.soilHumidity > 75;
-      const highTemp = input.temperature > 28;
+      const highHumidity = sanitizedInput.soilHumidity > 75;
+      const highTemp = sanitizedInput.temperature > 28;
       
       if (highHumidity && highTemp) {
         return {
