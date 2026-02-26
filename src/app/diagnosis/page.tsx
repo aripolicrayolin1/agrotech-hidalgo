@@ -91,18 +91,18 @@ export default function DiagnosisPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {!selectedImage ? (
-                    <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl aspect-video flex flex-col items-center justify-center p-12 bg-muted/10 group hover:bg-muted/20 transition-all cursor-pointer relative">
+                    <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl aspect-video flex flex-col items-center justify-center p-12 bg-muted/10 group hover:bg-muted/20 transition-all cursor-pointer relative overflow-hidden">
                       <Input 
                         type="file" 
                         accept="image/*" 
-                        className="absolute inset-0 opacity-0 cursor-pointer" 
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                         onChange={handleImageChange}
                       />
                       <div className="bg-primary/10 p-4 rounded-full mb-4 group-hover:scale-110 transition-transform">
                         <Camera className="h-10 w-10 text-primary" />
                       </div>
                       <p className="font-bold text-lg">Subir o Tomar Foto</p>
-                      <p className="text-sm text-muted-foreground">PNG, JPG hasta 10MB</p>
+                      <p className="text-sm text-muted-foreground text-center">Toca aquí para seleccionar una imagen de tu galería o cámara</p>
                     </div>
                   ) : (
                     <div className="relative aspect-video rounded-xl overflow-hidden group shadow-inner bg-black">
@@ -115,7 +115,7 @@ export default function DiagnosisPage() {
                        <Button 
                          variant="destructive" 
                          size="icon" 
-                         className="absolute top-4 right-4 h-8 w-8 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                         className="absolute top-4 right-4 h-8 w-8 rounded-full shadow-lg z-20"
                          onClick={reset}
                        >
                          <X className="h-4 w-4" />
