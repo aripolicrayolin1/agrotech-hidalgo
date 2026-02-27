@@ -7,33 +7,58 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Mail, MapPin, Save, Bell, Shield } from "lucide-react";
+import { User, Mail, MapPin, Save, Bell, Shield, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/firebase/auth/use-user";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function SettingsPage() {
   const { toast } = useToast();
+  const { user, loading } = useUser();
   const [profile, setProfile] = useState({
-    name: "Juan Pérez",
-    email: "juan.perez@hidalgo.com",
+    name: "",
+    email: "",
     location: "Actopan, Hidalgo",
     bio: "Agricultor dedicado al cultivo de maíz y leguminosas."
   });
 
   useEffect(() => {
+    // Primero intentamos cargar del localStorage
     const savedProfile = localStorage.getItem("user_profile");
     if (savedProfile) {
-      setProfile(JSON.parse(savedProfile));
+      const parsed = JSON.parse(savedProfile);
+      setProfile(prev => ({
+        ...prev,
+        ...parsed
+      }));
     }
-  }, []);
+
+    // Si hay un usuario logueado, actualizamos nombre y correo
+    if (user) {
+      setProfile(prev => ({
+        ...prev,
+        name: user.displayName || prev.name || "Agricultor",
+        email: user.email || prev.email || ""
+      }));
+    }
+  }, [user]);
 
   const handleSave = () => {
     localStorage.setItem("user_profile", JSON.stringify(profile));
     toast({
       title: "Perfil Actualizado",
-      description: "Tus datos han sido guardados correctamente."
+      description: "Tus datos han sido guardados correctamente en el sistema local."
     });
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -55,52 +80,75 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex justify-center mb-6">
-                  <div className="h-24 w-24 rounded-full bg-primary/20 border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
-                    <User className="h-12 w-12 text-primary" />
-                  </div>
+                  <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
+                    <AvatarImage src={user?.photoURL || ""} alt={profile.name} />
+                    <AvatarFallback className="bg-primary/20 text-primary text-3xl">
+                      {profile.name.charAt(0) || <User className="h-12 w-12" />}
+                    </AvatarFallback>
+                  </Avatar>
                 </div>
+                
                 <div className="space-y-2">
                   <Label>Nombre Completo</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input className="pl-10" value={profile.name} onChange={(e) => setProfile({...profile, name: e.target.value})} />
+                    <Input 
+                      className="pl-10" 
+                      value={profile.name} 
+                      onChange={(e) => setProfile({...profile, name: e.target.value})} 
+                      placeholder="Tu nombre"
+                    />
                   </div>
                 </div>
+
                 <div className="space-y-2">
                   <Label>Correo Electrónico</Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input className="pl-10" value={profile.email} onChange={(e) => setProfile({...profile, email: e.target.value})} />
+                    <Input 
+                      className="pl-10 bg-muted/50" 
+                      value={profile.email} 
+                      readOnly
+                      title="El correo se sincroniza con tu cuenta de Google"
+                    />
                   </div>
                 </div>
+
                 <div className="space-y-2">
                   <Label>Ubicación</Label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input className="pl-10" value={profile.location} onChange={(e) => setProfile({...profile, location: e.target.value})} />
+                    <Input 
+                      className="pl-10" 
+                      value={profile.location} 
+                      onChange={(e) => setProfile({...profile, location: e.target.value})} 
+                      placeholder="Ej: Actopan, Hidalgo"
+                    />
                   </div>
                 </div>
               </CardContent>
               <CardFooter>
-                <Button className="w-full" onClick={handleSave}>
+                <Button className="w-full font-bold h-11" onClick={handleSave}>
                   <Save className="h-4 w-4 mr-2" /> Guardar Cambios
                 </Button>
               </CardFooter>
             </Card>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Card className="cursor-pointer hover:bg-muted/30 transition-colors">
-                <CardHeader className="p-4">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Bell className="h-4 w-4 text-primary" /> Notificaciones
-                  </CardTitle>
+              <Card className="cursor-pointer hover:bg-muted/30 transition-colors border-none shadow-sm">
+                <CardHeader className="p-4 flex flex-row items-center gap-3">
+                  <div className="bg-primary/10 p-2 rounded-full">
+                    <Bell className="h-4 w-4 text-primary" />
+                  </div>
+                  <CardTitle className="text-sm">Notificaciones</CardTitle>
                 </CardHeader>
               </Card>
-              <Card className="cursor-pointer hover:bg-muted/30 transition-colors">
-                <CardHeader className="p-4">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-primary" /> Privacidad
-                  </CardTitle>
+              <Card className="cursor-pointer hover:bg-muted/30 transition-colors border-none shadow-sm">
+                <CardHeader className="p-4 flex flex-row items-center gap-3">
+                  <div className="bg-primary/10 p-2 rounded-full">
+                    <Shield className="h-4 w-4 text-primary" />
+                  </div>
+                  <CardTitle className="text-sm">Privacidad</CardTitle>
                 </CardHeader>
               </Card>
             </div>
