@@ -58,11 +58,7 @@
     },
     "/users/{userId}/farms/{farmId}": {
       "schema": "Farm",
-      "description": "Fincas privadas del usuario accesible solo por el dueño"
-    },
-    "/community_alerts/{alertId}": {
-      "schema": "CommunityAlert",
-      "description": "Alertas compartidas visibles para toda la comunidad autenticada"
+      "description": "Fincas individuales. Solo el dueño ({userId}) tiene permisos de lectura, listado y escritura."
     }
   }
 }
