@@ -82,7 +82,25 @@ const translations = {
     consult_expert: "Consultar Experto",
     send_message: "Enviar Mensaje",
     chat_with: "Chat con",
-    write_query: "Escribe tu consulta técnica..."
+    write_query: "Escribe tu consulta técnica...",
+    my_farms: "Mis Fincas",
+    land_management: "Gestión de Terrenos",
+    farms_desc: "Administra tus cultivos con sincronización en la nube.",
+    add_farm: "Añadir Finca",
+    new_farm_btn: "Nueva Finca",
+    view_monitoring: "Ver Monitoreo",
+    healthy: "Saludable",
+    last_update_label: "Actualización",
+    sync_firebase: "Sincronizando con Firebase...",
+    add_new_farm_title: "Añadir Nueva Finca",
+    add_new_farm_desc: "Registra los datos básicos de tu terreno en la nube.",
+    farm_name_label: "Nombre de la Finca",
+    location_label: "Ubicación (Municipio)",
+    main_crop_label: "Cultivo Principal",
+    area_label: "Área (Hectáreas)",
+    cancel: "Cancelar",
+    save_farm: "Guardar Finca",
+    inicia_sesion_anadir: "Inicia sesión para añadir"
   },
   hn: {
     dashboard: "Ñut’i Ja’i",
@@ -160,7 +178,25 @@ const translations = {
     consult_expert: "Hyandi Pa̱di",
     send_message: "Xo̱fo hñä",
     chat_with: "Hñä ko",
-    write_query: "Xo̱fo ya n’u..."
+    write_query: "Xo̱fo ya n’u...",
+    my_farms: "Ma B’o̱za",
+    land_management: "Hyandi ya Hoi",
+    farms_desc: "Hyandi ya b’o̱za ko Firebase.",
+    add_farm: "Hño B’o̱za",
+    new_farm_btn: "Hño B’o̱za",
+    view_monitoring: "Hyandi",
+    healthy: "Hño",
+    last_update_label: "Hyandi",
+    sync_firebase: "Hyandi ko Firebase...",
+    add_new_farm_title: "Hño B’o̱za",
+    add_new_farm_desc: "Xo̱fo ya datos ja nthe.",
+    farm_name_label: "Thuhu B’o̱za",
+    location_label: "Ubicación",
+    main_crop_label: "B’o̱za",
+    area_label: "Área",
+    cancel: "Hotho",
+    save_farm: "Xo̱fo",
+    inicia_sesion_anadir: "Ñut’i ja’i pa hño"
   }
 };
 
