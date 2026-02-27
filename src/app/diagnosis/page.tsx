@@ -1,4 +1,3 @@
-
 "use client";
 
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
@@ -30,9 +29,11 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
 
 export default function DiagnosisPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [diagnosis, setDiagnosis] = useState<CropDiagnosisOutput | null>(null);
   const [loading, setLoading] = useState(false);
@@ -74,15 +75,13 @@ export default function DiagnosisPage() {
   const handleSendRegionalAlert = () => {
     if (!diagnosis) return;
 
-    // Obtener alertas existentes
     const savedAlerts = localStorage.getItem("community_alerts");
     const currentAlerts = savedAlerts ? JSON.parse(savedAlerts) : [];
 
-    // Crear nueva alerta basada en el diagnóstico
     const newAlert = {
       id: Date.now(),
       region: "Tu Zona (Hidalgo)",
-      crop: "Maíz", // Podría ser dinámico si la IA lo detecta
+      crop: "Detectado en Diagnóstico",
       problem: diagnosis.diagnosis.identifiedProblem,
       severity: diagnosis.diagnosis.severity === 'High' ? 'Alta' : 'Media',
       distance: "En tu posición",
@@ -100,10 +99,31 @@ export default function DiagnosisPage() {
   };
 
   const handleContactAgronomist = () => {
+    if (!diagnosis) return;
+
+    // Crear un mensaje en el chat del agrónomo (ID: 99)
+    const expertChatKey = "chat_99";
+    const existingChat = localStorage.getItem(expertChatKey);
+    const chatHistory = existingChat ? JSON.parse(existingChat) : [
+      { sender: "system", text: "Hola, soy el Ing. Ricardo. He recibido tu diagnóstico sobre: " + diagnosis.diagnosis.identifiedProblem }
+    ];
+
+    const userMsg = { 
+      sender: "user", 
+      text: `Hola Ing. Ricardo, mi cultivo tiene: ${diagnosis.diagnosis.identifiedProblem}. ¿Qué me recomienda?` 
+    };
+    
+    localStorage.setItem(expertChatKey, JSON.stringify([...chatHistory, userMsg]));
+
     toast({
-      title: "Conectando con Agrónomo",
-      description: "Estamos enviando tu diagnóstico a un experto. Recibirás una respuesta en la sección de Comunidad.",
+      title: "Mensaje Enviado",
+      description: "Tu diagnóstico ha sido enviado al Ing. Ricardo. Revisa la sección de Comunidad.",
     });
+
+    // Redirigir opcionalmente después de un pequeño retraso
+    setTimeout(() => {
+      router.push("/community");
+    }, 1500);
   };
 
   const reset = () => {
@@ -116,7 +136,7 @@ export default function DiagnosisPage() {
     <SidebarProvider>
       <SidebarNav />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center justify-between px-6 transition-[width,height] ease-linear border-b bg-white/80 backdrop-blur-md sticky top-0 z-10">
+        <header className="flex h-16 shrink-0 items-center justify-between px-6 border-b bg-white/80 backdrop-blur-md sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <SidebarTrigger />
             <h1 className="text-xl font-bold">Diagnóstico IA</h1>
@@ -334,7 +354,6 @@ export default function DiagnosisPage() {
                       <Button 
                         className="flex-1 font-bold gap-2" 
                         onClick={handleSendRegionalAlert}
-                        disabled={!diagnosis.diagnosis.isProblemDetected}
                       >
                         <Share2 className="h-4 w-4" /> Enviar Alerta Regional
                       </Button>

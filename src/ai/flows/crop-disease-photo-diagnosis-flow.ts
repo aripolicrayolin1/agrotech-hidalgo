@@ -80,9 +80,9 @@ const cropDiagnosisFlow = ai.defineFlow(
         console.warn("IA Quota exhausted for diagnosis flow.");
         return {
           diagnosis: {
-            isProblemDetected: false,
+            isProblemDetected: true, // Permitimos que el usuario reporte el problema aunque la IA falle
             identifiedProblem: "Servicio de IA en espera (Cuota alcanzada)",
-            severity: "Not Applicable",
+            severity: "Medium",
             confidence: "Low",
             recommendedActions: [
               "Por favor, espera unos 15-30 segundos antes de intentar de nuevo.",

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
@@ -18,7 +17,8 @@ import {
   Filter,
   Plus,
   Send,
-  X
+  X,
+  UserCheck
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
@@ -27,6 +27,17 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const initialStores = [
+  {
+    id: 99,
+    name: "Ing. Ricardo (Agrónomo)",
+    location: "Soporte Especializado",
+    specialty: "Asesoría en Plagas y Cultivos",
+    rating: 5.0,
+    phone: "771-555-0101",
+    image: "https://picsum.photos/seed/expert1/400/200",
+    open: true,
+    isExpert: true
+  },
   {
     id: 1,
     name: "Agropecuaria El Valle",
@@ -61,7 +72,7 @@ export default function CommunityPage() {
     if (savedChat) {
       setChatHistory(JSON.parse(savedChat));
     } else {
-      setChatHistory([{ sender: "system", text: `Hola, ¿en qué podemos ayudarte en ${store.name}?` }]);
+      setChatHistory([{ sender: "system", text: `Hola, soy ${store.name}. ¿En qué podemos ayudarte?` }]);
     }
   };
 
@@ -75,11 +86,15 @@ export default function CommunityPage() {
 
     // Respuesta simulada
     setTimeout(() => {
-      const response = { sender: "store", text: "Gracias por tu mensaje. Un asesor te atenderá en unos minutos." };
+      const responseText = selectedStore.isExpert 
+        ? "He recibido tu consulta. Analizaré los síntomas que mencionas y te daré una recomendación técnica en breve."
+        : "Gracias por tu mensaje. Un asesor de la tienda te atenderá en unos minutos.";
+      
+      const response = { sender: "store", text: responseText };
       const withResponse = [...updatedChat, response];
       setChatHistory(withResponse);
       localStorage.setItem(`chat_${selectedStore.id}`, JSON.stringify(withResponse));
-    }, 1500);
+    }, 2000);
   };
 
   return (
@@ -98,23 +113,37 @@ export default function CommunityPage() {
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div className="space-y-1">
                 <h2 className="text-3xl font-bold tracking-tight">Directorio Agropecuario</h2>
-                <p className="text-muted-foreground">Comunícate directamente con proveedores locales.</p>
+                <p className="text-muted-foreground">Comunícate directamente con proveedores y expertos locales.</p>
               </div>
             </div>
 
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {initialStores.map((store) => (
-                <Card key={store.id} className="overflow-hidden border-none shadow-lg">
+                <Card key={store.id} className={`overflow-hidden border-none shadow-lg ${store.isExpert ? 'ring-2 ring-primary/20' : ''}`}>
                   <div className="relative h-40 w-full overflow-hidden">
                     <Image src={store.image} alt={store.name} fill className="object-cover" />
+                    {store.isExpert && (
+                      <Badge className="absolute top-2 right-2 bg-primary">Experto Verificado</Badge>
+                    )}
                   </div>
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">{store.name}</CardTitle>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      {store.isExpert ? <UserCheck className="h-5 w-5 text-primary" /> : <Store className="h-5 w-5 text-primary" />}
+                      {store.name}
+                    </CardTitle>
                     <CardDescription>{store.location}</CardDescription>
                   </CardHeader>
+                  <CardContent className="pb-2">
+                    <p className="text-sm font-medium text-primary">{store.specialty}</p>
+                    <div className="flex items-center gap-1 mt-2">
+                      <Star className="h-3 w-3 fill-accent text-accent" />
+                      <span className="text-xs font-bold">{store.rating}</span>
+                    </div>
+                  </CardContent>
                   <CardFooter>
-                    <Button className="w-full" onClick={() => openChat(store)}>
-                      <MessageSquare className="h-4 w-4 mr-2" /> Enviar Mensaje
+                    <Button className="w-full" variant={store.isExpert ? "default" : "outline"} onClick={() => openChat(store)}>
+                      <MessageSquare className="h-4 w-4 mr-2" /> 
+                      {store.isExpert ? "Consultar Experto" : "Enviar Mensaje"}
                     </Button>
                   </CardFooter>
                 </Card>
@@ -127,7 +156,7 @@ export default function CommunityPage() {
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <Store className="h-5 w-5 text-primary" />
+                {selectedStore?.isExpert ? <UserCheck className="h-5 w-5 text-primary" /> : <Store className="h-5 w-5 text-primary" />}
                 Chat con {selectedStore?.name}
               </DialogTitle>
             </DialogHeader>
