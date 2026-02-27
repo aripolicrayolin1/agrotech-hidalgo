@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview A predictive AI agent with Multi-Key Rotation capability.
+ * @fileOverview Alertas predictivas con rotación automática de llaves API.
  */
 
 import {getAIInstance} from '@/ai/genkit';
@@ -37,7 +37,7 @@ export async function predictivePestDiseaseAlerts(input: PredictiveAlertInput): 
       const ai = getAIInstance(i);
       
       const prompt = ai.definePrompt({
-        name: `predictiveAlertPrompt_${i}`,
+        name: `predictiveAlertPrompt_v2_${i}`,
         input: {schema: PredictiveAlertInputSchema},
         output: {schema: PredictiveAlertOutputSchema},
         prompt: `Analiza sensores para {{cropType}} en {{region}}: Humedad Suelo: {{{soilHumidity}}}%, Temp: {{{temperature}}}°C. Genera alerta predictiva de plagas.`,
@@ -48,17 +48,17 @@ export async function predictivePestDiseaseAlerts(input: PredictiveAlertInput): 
     } catch (e: any) {
       const isQuotaError = e.message?.includes('RESOURCE_EXHAUSTED') || e.status === 429;
       if (!isQuotaError) break;
-      console.warn(`Predicción: Llave ${i + 1} agotada, rotando...`);
+      console.warn(`Predicción: Llave ${i + 1} agotada, saltando...`);
     }
   }
 
-  // Fallback heurístico si fallan todas las llaves
+  // Lógica local si fallan todas las llaves de la nube
   return {
-    alertNeeded: sanitizedInput.soilHumidity > 80,
-    alertMessage: "Límite de IA alcanzado. Usando lógica de sensores local.",
+    alertNeeded: sanitizedInput.soilHumidity > 80 || sanitizedInput.temperature > 35,
+    alertMessage: "IA en mantenimiento. Usando análisis de sensores locales.",
     predictedRisk: sanitizedInput.soilHumidity > 80 ? "Medium" : "None",
-    potentialProblem: sanitizedInput.soilHumidity > 80 ? "Riesgo de Hongos (Humedad Alta)" : "Ninguno",
-    recommendation: "Monitoreo manual mientras se libera la cuota de la IA.",
+    potentialProblem: sanitizedInput.soilHumidity > 80 ? "Riesgo de Hongos por Humedad" : "Ninguno",
+    recommendation: "Monitorea visualmente tu cultivo mientras el servicio de IA se restablece.",
     isFallback: true
   };
 }

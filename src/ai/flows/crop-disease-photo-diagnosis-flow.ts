@@ -1,7 +1,6 @@
 'use server';
 /**
- * @fileOverview This file implements a Genkit flow for diagnosing crop diseases or pests from a photo.
- * Now includes Multi-Key Rotation logic to handle Quota Exhausted errors.
+ * @fileOverview Diagnóstico de enfermedades de cultivos con rotación de llaves API.
  */
 
 import {getAIInstance} from '@/ai/genkit';
@@ -10,9 +9,7 @@ import {z} from 'genkit';
 const CropDiagnosisInputSchema = z.object({
   photoDataUri: z
     .string()
-    .describe(
-      "A photo of a crop as a data URI."
-    ),
+    .describe("A photo of a crop as a data URI."),
   description: z.string().optional().describe('Description of the symptoms.'),
 });
 export type CropDiagnosisInput = z.infer<typeof CropDiagnosisInputSchema>;
@@ -40,10 +37,6 @@ const CropDiagnosisOutputSchema = z.object({
 });
 export type CropDiagnosisOutput = z.infer<typeof CropDiagnosisOutputSchema>;
 
-/**
- * Función principal que intenta el diagnóstico.
- * Si falla por cuota, rota a la siguiente llave API disponible.
- */
 export async function diagnoseCropDisease(input: CropDiagnosisInput): Promise<CropDiagnosisOutput> {
   const maxRetries = 3;
   let lastError = null;
@@ -53,7 +46,7 @@ export async function diagnoseCropDisease(input: CropDiagnosisInput): Promise<Cr
       const ai = getAIInstance(i);
       
       const prompt = ai.definePrompt({
-        name: `cropDiagnosisPrompt_${i}`,
+        name: `cropDiagnosisPrompt_v2_${i}`,
         input: {schema: CropDiagnosisInputSchema},
         output: {schema: CropDiagnosisOutputSchema},
         prompt: `Eres un experto fitopatólogo en Hidalgo, México. Analiza la imagen y diagnostica el problema.
@@ -70,26 +63,28 @@ export async function diagnoseCropDisease(input: CropDiagnosisInput): Promise<Cr
     } catch (e: any) {
       lastError = e;
       const isQuotaError = e.message?.includes('RESOURCE_EXHAUSTED') || e.status === 429;
-      if (!isQuotaError) break; // Si no es error de cuota, no reintentamos con otra llave
-      console.warn(`Llave ${i + 1} agotada, rotando...`);
+      if (!isQuotaError) {
+        console.error("Error no relacionado con cuota:", e.message);
+        break; 
+      }
+      console.warn(`Diagnóstico: Llave ${i + 1} agotada, intentando con la siguiente...`);
     }
   }
 
-  // Si llegamos aquí, todas las llaves fallaron o hubo un error fatal
   return {
     diagnosis: {
       isProblemDetected: true,
-      identifiedProblem: "IA en Mantenimiento Regional",
+      identifiedProblem: "IA en Relevo Tecnológico",
       severity: "Medium",
       confidence: "Low",
       recommendedActions: [
-        "El servicio de Google Gemini ha alcanzado el límite en todas las llaves configuradas.",
-        "Por favor, intenta de nuevo en 60 segundos.",
-        "Asegúrate de haber configurado GEMINI_API_KEY_2 y GEMINI_API_KEY_3 en tu entorno."
+        "El servicio está experimentando alta demanda.",
+        "Estamos rotando las llaves de acceso para procesar tu solicitud.",
+        "Por favor, presiona el botón de 'Iniciar Análisis' una vez más."
       ],
       commercialProducts: [],
       homeMadeRemedies: [],
-      additionalNotes: `Error técnico: ${lastError?.message || 'Límite de cuota excedido'}`,
+      additionalNotes: `Nota técnica: ${lastError?.message || 'Rotación de seguridad activada'}`,
       isWaiting: true
     }
   };

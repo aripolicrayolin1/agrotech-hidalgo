@@ -7,13 +7,20 @@ import {googleAI} from '@genkit-ai/google-genai';
  */
 export function getAIInstance(keyIndex: number = 0) {
   const keys = [
+    "AIzaSyAN_DszwX0FLg_25hacO8HJHSbqIn2L59s", // Llave 1
+    "AIzaSyCvEPqyhH2lWBWZrhpZy_vWalAH9Yhc4Zc", // Llave 2
+    "AIzaSyAruza-Wafz78L5YeLtvF5ATBB1P5uMKCo"  // Llave 3
+  ];
+
+  // Si el usuario configuró variables de entorno, tienen prioridad
+  const envKeys = [
     process.env.GEMINI_API_KEY,
     process.env.GEMINI_API_KEY_2,
     process.env.GEMINI_API_KEY_3
   ].filter(Boolean) as string[];
 
-  // Si no hay llaves extras, usamos la principal por defecto
-  const apiKey = keys[keyIndex % (keys.length || 1)] || process.env.GEMINI_API_KEY;
+  const finalKeys = envKeys.length > 0 ? envKeys : keys;
+  const apiKey = finalKeys[keyIndex % finalKeys.length];
 
   return genkit({
     plugins: [googleAI({apiKey})],
@@ -21,5 +28,5 @@ export function getAIInstance(keyIndex: number = 0) {
   });
 }
 
-// Instancia por defecto
+// Instancia por defecto (usa la primera llave)
 export const ai = getAIInstance(0);
