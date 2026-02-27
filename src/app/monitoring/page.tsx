@@ -33,7 +33,8 @@ import {
   FileText,
   Printer,
   FileDown,
-  Leaf
+  Leaf,
+  FileEdit
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp, getApps } from "firebase/app";
@@ -86,9 +87,16 @@ export default function MonitoringPage() {
   const [isOnline, setIsOnline] = useState(false);
   const [events, setEvents] = useState<{time: string, event: string, status: string}[]>([]);
   const lastTimeRef = useRef<string>("");
+  const [formattedDateTime, setFormattedDateTime] = useState<{date: string, time: string} | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
+    // Para evitar errores de hidratación, generamos la fecha solo en el cliente
+    setFormattedDateTime({
+      date: new Date().toLocaleDateString(),
+      time: new Date().toLocaleTimeString()
+    });
+
     const sensorsRef = ref(db, 'sensores');
     const unsubscribe = onValue(sensorsRef, (snapshot) => {
       const data = snapshot.val();
@@ -210,20 +218,91 @@ export default function MonitoringPage() {
     document.body.removeChild(link);
     
     toast({
-      title: "Reporte CSV Descargado",
-      description: `Se ha generado el reporte de la pestaña "${activeTab.toUpperCase()}".`,
+      title: "CSV Descargado",
+      description: `Reporte "${activeTab.toUpperCase()}" guardado correctamente.`,
+    });
+  };
+
+  const downloadWord = () => {
+    // Generar un HTML compatible con Word
+    const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' "+
+            "xmlns:w='urn:schemas-microsoft-com:office:word' "+
+            "xmlns='http://www.w3.org/TR/REC-html40'>"+
+            "<head><meta charset='utf-8'><title>Reporte AgroTech</title></head><body>";
+    const footer = "</body></html>";
+    
+    const content = `
+      <div style="text-align: center; font-family: sans-serif;">
+        <h1 style="color: #339933; margin-bottom: 0;">AgroTech - Sistema Inteligente</h1>
+        <p style="color: #666; font-size: 14px; margin-top: 5px;">Hidalgo, México | Reporte de Monitoreo</p>
+        <hr style="border: 1px solid #339933;">
+      </div>
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2>Resumen de Cultivo: ${activeTab === 'live' ? 'En Vivo' : activeTab === 'today' ? 'Hoy' : 'Histórico Semanal'}</h2>
+        <p><strong>Fecha de Emisión:</strong> ${formattedDateTime?.date} ${formattedDateTime?.time}</p>
+        <p><strong>Ubicación:</strong> Región Valle del Mezquital, Hidalgo.</p>
+        
+        <table border="1" cellpadding="10" style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+          <tr style="background-color: #339933; color: white;">
+            <th>Parámetro</th>
+            <th>Último Valor Registrado</th>
+            <th>Estado</th>
+          </tr>
+          <tr>
+            <td>Temperatura Ambiental</td>
+            <td align="center">${currentValues.temp.toFixed(2)} °C</td>
+            <td align="center">${currentValues.temp > 35 ? 'Alerta Calor' : 'Normal'}</td>
+          </tr>
+          <tr>
+            <td>Humedad del Suelo</td>
+            <td align="center">${currentValues.humiditySoil.toFixed(2)} %</td>
+            <td align="center">${currentValues.humiditySoil < 40 ? 'Requiere Riego' : 'Óptimo'}</td>
+          </tr>
+          <tr>
+            <td>Humedad del Aire</td>
+            <td align="center">${currentValues.humidityAir.toFixed(2)} %</td>
+            <td align="center">Estable</td>
+          </tr>
+          <tr>
+            <td>Evapotranspiración (ET)</td>
+            <td align="center">${currentValues.et.toFixed(2)} mm</td>
+            <td align="center">Normal</td>
+          </tr>
+          <tr>
+            <td>Punto de Rocío</td>
+            <td align="center">${currentValues.dewPoint.toFixed(2)} °C</td>
+            <td align="center">Sin Riesgo Helada</td>
+          </tr>
+        </table>
+        
+        <div style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 10px; font-size: 12px; color: #888;">
+          <p>Este reporte ha sido generado automáticamente por la plataforma AgroTech Hidalgo utilizando tecnología de IA y sensores IoT en tiempo real.</p>
+        </div>
+      </div>
+    `;
+    
+    const source = header + content + footer;
+    const blob = new Blob(['\ufeff', source], {
+      type: 'application/msword'
+    });
+    
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `reporte_agrotech_${new Date().toISOString().split('T')[0]}.doc`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: "Documento Word Descargado",
+      description: "El reporte se ha guardado en formato Word (.doc).",
     });
   };
 
   const downloadPdf = () => {
-    toast({
-      title: "Generando Reporte PDF",
-      description: "Se abrirá el menú de guardado. El PDF incluirá el logo y membrete de AgroTech.",
-    });
-    
-    setTimeout(() => {
-      window.print();
-    }, 500);
+    // Simplemente llamamos a la impresión nativa que es la mejor forma de obtener PDF con gráficas
+    window.print();
   };
 
   const renderCharts = (data: any[], isLive = false) => (
@@ -248,19 +327,22 @@ export default function MonitoringPage() {
           <div className="flex items-center gap-3">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2 shadow-sm">
+                <Button variant="outline" size="sm" className="gap-2 shadow-sm font-bold border-primary/20 text-primary">
                   <Download className="h-4 w-4" /> Exportar Reporte
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={downloadCsv} className="gap-2 cursor-pointer">
-                  <FileText className="h-4 w-4" /> Exportar CSV (Excel)
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={downloadCsv} className="gap-2 cursor-pointer font-medium">
+                  <FileText className="h-4 w-4 text-green-600" /> Exportar CSV (Excel)
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={downloadPdf} className="gap-2 cursor-pointer">
-                  <FileDown className="h-4 w-4" /> Generar Reporte PDF
+                <DropdownMenuItem onClick={downloadWord} className="gap-2 cursor-pointer font-medium">
+                  <FileEdit className="h-4 w-4 text-blue-600" /> Descargar Word (.doc)
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={downloadPdf} className="gap-2 cursor-pointer">
-                  <Printer className="h-4 w-4" /> Imprimir Reporte
+                <DropdownMenuItem onClick={downloadPdf} className="gap-2 cursor-pointer font-medium">
+                  <FileDown className="h-4 w-4 text-red-600" /> Generar Reporte PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadPdf} className="gap-2 cursor-pointer font-medium">
+                  <Printer className="h-4 w-4 text-slate-600" /> Imprimir Ahora
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -272,30 +354,45 @@ export default function MonitoringPage() {
         </header>
 
         <main className="flex-1 p-4 md:p-8 space-y-8 print:p-0 print:m-0">
-          {/* Cabecera del Reporte para PDF (Solo visible al imprimir) */}
-          <div className="only-print mb-8 border-b-2 border-primary pb-6">
+          {/* Cabecera del Reporte para PDF/Impresión */}
+          <div className="only-print mb-8 border-b-4 border-primary pb-6">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-primary rounded-xl p-2">
-                  <Leaf className="h-10 w-10 text-white" />
+              <div className="flex items-center gap-4">
+                <div className="bg-primary rounded-2xl p-3">
+                  <Leaf className="h-12 w-12 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-4xl font-black tracking-tighter text-primary">AgroTech</h1>
-                  <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Hidalgo, México</p>
+                  <h1 className="text-5xl font-black tracking-tighter text-primary">AgroTech</h1>
+                  <p className="text-md font-bold text-muted-foreground uppercase tracking-[0.2em]">Hidalgo, México</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-lg font-bold">Reporte de Monitoreo Agrícola</p>
-                {isMounted && (
-                  <p className="text-sm text-muted-foreground">Generado: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
+                <h2 className="text-2xl font-bold text-foreground">Reporte de Monitoreo Agrícola</h2>
+                {formattedDateTime && (
+                  <p className="text-sm text-muted-foreground mt-1">Generado el: <span className="font-bold text-foreground">{formattedDateTime.date} a las {formattedDateTime.time}</span></p>
                 )}
-                <Badge className="mt-2 uppercase">{activeTab === 'live' ? 'En Vivo' : activeTab === 'today' ? 'Hoy' : 'Histórico Semanal'}</Badge>
+                <div className="mt-3">
+                   <Badge className="uppercase px-4 py-1 text-sm bg-primary/10 text-primary border-primary/20">
+                     {activeTab === 'live' ? 'Monitoreo en Tiempo Real' : activeTab === 'today' ? 'Resumen Diario' : 'Histórico Semanal'}
+                   </Badge>
+                </div>
               </div>
             </div>
-            <div className="mt-6 grid grid-cols-3 gap-4 text-xs bg-muted/20 p-4 rounded-xl">
-              <p><strong>Ubicación:</strong> Región del Valle del Mezquital</p>
-              <p><strong>Estación:</strong> AgroNode-ESP32-V2</p>
-              <p><strong>Clima detectado:</strong> {currentValues.temp > 30 ? 'Cálido' : 'Templado'}</p>
+            <div className="mt-8 grid grid-cols-3 gap-6 text-sm bg-primary/5 p-6 rounded-2xl border border-primary/10">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Ubicación de Finca</p>
+                <p className="font-bold text-foreground">Valle del Mezquital, Hidalgo</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Estación de Sensores</p>
+                <p className="font-bold text-foreground">AgroNode-ESP32 (Wokwi Sim)</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Estado del Cultivo</p>
+                <p className={`font-bold ${currentValues.temp > 35 || currentValues.humiditySoil < 40 ? 'text-destructive' : 'text-primary'}`}>
+                  {currentValues.temp > 35 || currentValues.humiditySoil < 40 ? 'ATENCIÓN REQUERIDA' : 'SISTEMA ESTABLE'}
+                </p>
+              </div>
             </div>
           </div>
 
