@@ -74,7 +74,15 @@ const translations = {
     not_compatible: "No compatible",
     not_compatible_desc: "Tu navegador no soporta reconocimiento de voz.",
     missing_data: "Faltan datos",
-    missing_data_desc: "Sube una foto o dicta los síntomas."
+    missing_data_desc: "Sube una foto o dicta los síntomas.",
+    community_commerce: "Comunidad y Comercios",
+    agro_directory: "Directorio Agropecuario",
+    contact_experts: "Contacta expertos y proveedores en la región de Hidalgo.",
+    verified_expert: "Experto Verificado",
+    consult_expert: "Consultar Experto",
+    send_message: "Enviar Mensaje",
+    chat_with: "Chat con",
+    write_query: "Escribe tu consulta técnica..."
   },
   hn: {
     dashboard: "Ñut’i Ja’i",
@@ -144,7 +152,15 @@ const translations = {
     not_compatible: "Hotho compatible",
     not_compatible_desc: "Navegador hotho hñä.",
     missing_data: "Hotho datos",
-    missing_data_desc: "Xo̱fo foto o ma̱ hñä."
+    missing_data_desc: "Xo̱fo foto o ma̱ hñä.",
+    community_commerce: "Munthe n’e Pa̱",
+    agro_directory: "Hyandi ya tienda",
+    contact_experts: "Hyandi ya ja’i n’e ya tienda ja Hidalgo.",
+    verified_expert: "Pa̱di xi’ño",
+    consult_expert: "Hyandi Pa̱di",
+    send_message: "Xo̱fo hñä",
+    chat_with: "Hñä ko",
+    write_query: "Xo̱fo ya n’u..."
   }
 };
 

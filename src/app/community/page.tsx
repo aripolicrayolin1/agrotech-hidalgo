@@ -18,6 +18,7 @@ import Image from "next/image";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
+import { useTranslation } from "@/hooks/use-translation";
 
 const initialStores = [
   {
@@ -57,6 +58,7 @@ const initialStores = [
 ];
 
 export default function CommunityPage() {
+  const { t } = useTranslation();
   const [selectedStore, setSelectedStore] = useState<any>(null);
   const [message, setMessage] = useState("");
   const [chatHistory, setChatHistory] = useState<any[]>([]);
@@ -98,15 +100,15 @@ export default function CommunityPage() {
         <header className="flex h-16 shrink-0 items-center justify-between px-6 border-b bg-white/80 backdrop-blur-md sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <SidebarTrigger />
-            <h1 className="text-xl font-bold">Comunidad y Comercios</h1>
+            <h1 className="text-xl font-bold">{t('community_commerce')}</h1>
           </div>
         </header>
 
         <main className="flex-1 p-4 md:p-8 space-y-6">
           <div className="max-w-6xl mx-auto space-y-8">
             <div className="space-y-1">
-              <h2 className="text-3xl font-bold tracking-tight">Directorio Agropecuario</h2>
-              <p className="text-muted-foreground">Contacta expertos y proveedores en la región de Hidalgo.</p>
+              <h2 className="text-3xl font-bold tracking-tight">{t('agro_directory')}</h2>
+              <p className="text-muted-foreground">{t('contact_experts')}</p>
             </div>
 
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -121,7 +123,7 @@ export default function CommunityPage() {
                       data-ai-hint={store.imageHint}
                     />
                     {store.isExpert && (
-                      <Badge className="absolute top-3 right-3 bg-primary shadow-lg">Experto Verificado</Badge>
+                      <Badge className="absolute top-3 right-3 bg-primary shadow-lg">{t('verified_expert')}</Badge>
                     )}
                   </div>
                   <CardHeader className="pb-2">
@@ -141,7 +143,7 @@ export default function CommunityPage() {
                   <CardFooter>
                     <Button className="w-full" variant={store.isExpert ? "default" : "outline"} onClick={() => openChat(store)}>
                       <MessageSquare className="h-4 w-4 mr-2" /> 
-                      {store.isExpert ? "Consultar Experto" : "Enviar Mensaje"}
+                      {store.isExpert ? t('consult_expert') : t('send_message')}
                     </Button>
                   </CardFooter>
                 </Card>
@@ -155,7 +157,7 @@ export default function CommunityPage() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 {selectedStore?.isExpert ? <UserCheck className="h-5 w-5 text-primary" /> : <Store className="h-5 w-5 text-primary" />}
-                Chat con {selectedStore?.name}
+                {t('chat_with')} {selectedStore?.name}
               </DialogTitle>
             </DialogHeader>
             <div className="flex flex-col h-[400px]">
@@ -172,7 +174,7 @@ export default function CommunityPage() {
               </div>
               <div className="flex gap-2 mt-4">
                 <Input 
-                  placeholder="Escribe tu consulta técnica..." 
+                  placeholder={t('write_query')} 
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
