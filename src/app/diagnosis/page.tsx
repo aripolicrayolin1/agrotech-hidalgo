@@ -22,7 +22,9 @@ import {
   MicOff,
   MapPin,
   ExternalLink,
-  ShoppingBag
+  ShoppingBag,
+  Users,
+  Share2
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { diagnoseCropDisease, type CropDiagnosisOutput } from "@/ai/flows/crop-disease-photo-diagnosis-flow";
@@ -41,7 +43,6 @@ export default function DiagnosisPage() {
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
-    // Inicializar reconocimiento de voz
     if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
@@ -61,11 +62,6 @@ export default function DiagnosisPage() {
 
       recognitionRef.current.onerror = () => {
         setIsListening(false);
-        toast({
-          title: "Error de Voz",
-          description: "No pudimos reconocer el audio. Intenta de nuevo.",
-          variant: "destructive"
-        });
       };
 
       recognitionRef.current.onend = () => setIsListening(false);
@@ -124,6 +120,32 @@ export default function DiagnosisPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleShareWithCommunity = () => {
+    if (!diagnosis) return;
+
+    const savedAlerts = localStorage.getItem("community_alerts");
+    const alerts = savedAlerts ? JSON.parse(savedAlerts) : [];
+    
+    const newAlert = {
+      id: Date.now().toString(),
+      region: "Reporte Directo (Hidalgo)",
+      crop: "Detectado por IA",
+      problem: diagnosis.diagnosis.identifiedProblem,
+      severity: diagnosis.diagnosis.severity === 'High' ? 'Alta' : 'Media',
+      distance: "En tu zona",
+      date: "Hace un momento",
+      lat: 20.1 + (Math.random() * 0.4),
+      lng: -98.8 - (Math.random() * 0.4)
+    };
+
+    localStorage.setItem("community_alerts", JSON.stringify([newAlert, ...alerts]));
+    
+    toast({
+      title: "Reporte Enviado",
+      description: "La comunidad ha sido alertada sobre este brote.",
+    });
   };
 
   const reset = () => {
@@ -216,9 +238,12 @@ export default function DiagnosisPage() {
                         <Badge className="absolute top-2 left-2 bg-orange-600">MODO RESPALDO</Badge>
                       )}
                    </div>
-                   <CardContent className="p-4">
+                   <CardContent className="p-4 space-y-3">
                      <Button variant="outline" className="w-full font-bold" onClick={reset}>
                        <RefreshCcw className="h-4 w-4 mr-2" /> Nueva Consulta
+                     </Button>
+                     <Button className="w-full font-bold bg-destructive hover:bg-destructive/90 text-white" onClick={handleShareWithCommunity}>
+                        <Users className="h-4 w-4 mr-2" /> Reportar Brote
                      </Button>
                    </CardContent>
                 </Card>
