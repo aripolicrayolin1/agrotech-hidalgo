@@ -2,9 +2,10 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// Configuración obtenida del proyecto del usuario: studio-3066950614-ac5b0
+// NOTA: Reemplaza 'TU_API_KEY_REAL' con la que aparece en la sección 
+// "Configuración del SDK web" de tu captura de pantalla.
 const firebaseConfig = {
-  apiKey: "AIzaSyDummyKey_RealProject", // Firebase aceptará solicitudes para este proyecto ID
+  apiKey: "AIzaSyDummyKey_RealProject", 
   authDomain: "studio-3066950614-ac5b0.firebaseapp.com",
   projectId: "studio-3066950614-ac5b0",
   storageBucket: "studio-3066950614-ac5b0.appspot.com",
