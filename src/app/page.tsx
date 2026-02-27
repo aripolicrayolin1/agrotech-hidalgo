@@ -260,7 +260,7 @@ export default function Home() {
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{user?.email || "Hidalgo, MX"}</p>
               </div>
               <Avatar className="h-8 w-8 border-2 border-primary/40">
-                <AvatarImage src={user?.photoURL || ""} alt="Profile" />
+                <AvatarImage src={user?.photoURL ?? undefined} alt="Profile" />
                 <AvatarFallback className="bg-primary/20 text-primary">
                   <User className="h-4 w-4" />
                 </AvatarFallback>

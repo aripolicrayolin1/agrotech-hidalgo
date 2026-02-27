@@ -24,7 +24,6 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    // Primero intentamos cargar del localStorage
     const savedProfile = localStorage.getItem("user_profile");
     if (savedProfile) {
       const parsed = JSON.parse(savedProfile);
@@ -34,7 +33,6 @@ export default function SettingsPage() {
       }));
     }
 
-    // Si hay un usuario logueado, actualizamos nombre y correo
     if (user) {
       setProfile(prev => ({
         ...prev,
@@ -81,7 +79,7 @@ export default function SettingsPage() {
               <CardContent className="space-y-4">
                 <div className="flex justify-center mb-6">
                   <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
-                    <AvatarImage src={user?.photoURL || ""} alt={profile.name} />
+                    <AvatarImage src={user?.photoURL ?? undefined} alt={profile.name} />
                     <AvatarFallback className="bg-primary/20 text-primary text-3xl">
                       {profile.name.charAt(0) || <User className="h-12 w-12" />}
                     </AvatarFallback>
