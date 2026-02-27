@@ -1,3 +1,4 @@
+
 "use client";
 
 import { 
@@ -7,7 +8,9 @@ import {
   Users, 
   Settings, 
   LogOut,
-  Leaf
+  Leaf,
+  UserCircle,
+  LogIn
 } from "lucide-react";
 import {
   Sidebar,
@@ -21,7 +24,11 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useUser } from "@/firebase/auth/use-user";
+import { auth } from "@/firebase/config";
+import { signOut } from "firebase/auth";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const navItems = [
   { title: "Dashboard", icon: LayoutDashboard, href: "/" },
@@ -33,6 +40,13 @@ const navItems = [
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, loading } = useUser();
+
+  const handleSignOut = async () => {
+    await signOut(auth);
+    router.push("/login");
+  };
 
   return (
     <Sidebar variant="inset" collapsible="icon">
@@ -48,6 +62,22 @@ export function SidebarNav() {
         </div>
       </SidebarHeader>
       <SidebarContent className="py-4">
+        {user && !loading && (
+          <div className="px-4 py-2 group-data-[collapsible=icon]:hidden">
+            <div className="flex items-center gap-3 p-2 bg-primary/5 rounded-xl border border-primary/10">
+              <Avatar className="h-8 w-8 border-2 border-primary/20">
+                <AvatarImage src={user.photoURL || ""} />
+                <AvatarFallback className="bg-primary/20 text-primary">
+                  {user.displayName?.charAt(0) || user.email?.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col min-w-0">
+                <p className="text-xs font-bold truncate">{user.displayName || "Agricultor"}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
+              </div>
+            </div>
+          </div>
+        )}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -71,20 +101,33 @@ export function SidebarNav() {
       </SidebarContent>
       <SidebarFooter className="border-t p-4">
         <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Ajustes">
-              <Link href="/settings">
-                <Settings className="h-5 w-5" />
-                <span>Configuración</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-          <SidebarMenuItem>
-            <SidebarMenuButton tooltip="Cerrar Sesión">
-              <LogOut className="h-5 w-5" />
-              <span>Salir</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          {!user ? (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Entrar">
+                <Link href="/login">
+                  <LogIn className="h-5 w-5" />
+                  <span>Iniciar Sesión</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ) : (
+            <>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Ajustes">
+                  <Link href="/settings">
+                    <Settings className="h-5 w-5" />
+                    <span>Configuración</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton tooltip="Cerrar Sesión" onClick={handleSignOut}>
+                  <LogOut className="h-5 w-5" />
+                  <span>Salir</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </>
+          )}
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
