@@ -28,12 +28,12 @@ import {
   Download,
   Clock,
   CalendarDays,
-  Wind,
   CloudRain,
   Snowflake,
   FileText,
   Printer,
-  FileDown
+  FileDown,
+  Leaf
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp, getApps } from "firebase/app";
@@ -213,15 +213,14 @@ export default function MonitoringPage() {
   };
 
   const downloadPdf = () => {
-    // Alerta antes de imprimir para que el usuario sepa qué hacer
     toast({
-      title: "Preparando PDF",
-      description: "Se abrirá el menú de impresión. Selecciona 'Guardar como PDF' para obtener tu reporte.",
+      title: "Generando Reporte PDF",
+      description: "Se abrirá el menú de guardado. El PDF incluirá el logo y membrete de AgroTech.",
     });
     
     setTimeout(() => {
       window.print();
-    }, 1000);
+    }, 500);
   };
 
   const renderCharts = (data: any[], isLive = false) => (
@@ -236,7 +235,7 @@ export default function MonitoringPage() {
 
   return (
     <SidebarProvider>
-      <SidebarNav />
+      <SidebarNav className="no-print" />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center justify-between px-6 border-b bg-white/80 backdrop-blur-md sticky top-0 z-10 no-print">
           <div className="flex items-center gap-2">
@@ -246,7 +245,7 @@ export default function MonitoringPage() {
           <div className="flex items-center gap-3">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
+                <Button variant="outline" size="sm" className="gap-2 shadow-sm">
                   <Download className="h-4 w-4" /> Exportar Reporte
                 </Button>
               </DropdownMenuTrigger>
@@ -264,16 +263,35 @@ export default function MonitoringPage() {
             </DropdownMenu>
             <Badge variant={isOnline ? "default" : "secondary"} className="gap-1.5 py-1 px-3">
               {isOnline ? <Wifi className="h-3.5 w-3.5 text-white animate-pulse" /> : <WifiOff className="h-3.5 w-3.5" />}
-              {isOnline ? "Wokwi Conectado" : "Desconectado"}
+              {isOnline ? "En Línea" : "Desconectado"}
             </Badge>
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 space-y-8 print:p-0">
-          <div className="only-print mb-8 text-center">
-            <h1 className="text-3xl font-bold text-primary">Reporte Agrícola AgroTech</h1>
-            <p className="text-muted-foreground">Región: Hidalgo, México | Fecha: {new Date().toLocaleDateString()}</p>
-            <p className="mt-2 font-bold uppercase">Tipo de reporte: {activeTab.toUpperCase()}</p>
+        <main className="flex-1 p-4 md:p-8 space-y-8 print:p-0 print:m-0">
+          {/* Cabecera del Reporte para PDF (Solo visible al imprimir) */}
+          <div className="only-print mb-8 border-b-2 border-primary pb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary rounded-xl p-2">
+                  <Leaf className="h-10 w-10 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-4xl font-black tracking-tighter text-primary">AgroTech</h1>
+                  <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Hidalgo, México</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-bold">Reporte de Monitoreo Agrícola</p>
+                <p className="text-sm text-muted-foreground">Generado: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
+                <Badge className="mt-2 uppercase">{activeTab === 'live' ? 'En Vivo' : activeTab === 'today' ? 'Hoy' : 'Histórico Semanal'}</Badge>
+              </div>
+            </div>
+            <div className="mt-6 grid grid-cols-3 gap-4 text-xs bg-muted/20 p-4 rounded-xl">
+              <p><strong>Ubicación:</strong> Región del Valle del Mezquital</p>
+              <p><strong>Estación:</strong> AgroNode-ESP32-V2</p>
+              <p><strong>Clima detectado:</strong> {currentValues.temp > 30 ? 'Cálido' : 'Templado'}</p>
+            </div>
           </div>
 
           <Tabs defaultValue="live" className="w-full" onValueChange={setActiveTab}>
@@ -283,7 +301,7 @@ export default function MonitoringPage() {
                 <p className="text-muted-foreground text-sm">Monitoreo de 5 parámetros en tiempo real.</p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
-                <TabsList className="grid grid-cols-3 w-full md:w-[350px]">
+                <TabsList className="grid grid-cols-3 w-full md:w-[350px] shadow-sm">
                   <TabsTrigger value="live" className="gap-2"><Activity className="h-3.5 w-3.5" /> Vivo</TabsTrigger>
                   <TabsTrigger value="today" className="gap-2"><Clock className="h-3.5 w-3.5" /> Hoy</TabsTrigger>
                   <TabsTrigger value="week" className="gap-2"><CalendarDays className="h-3.5 w-3.5" /> Semana</TabsTrigger>
