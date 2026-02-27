@@ -1,41 +1,25 @@
-# Next.js
-/.next/
-/out/
-/build
+# Dependencias
+node_modules/
+.next/
+out/
+build/
 
-# Production
-/node_modules
-/.pnp
-.pnp.js
+# Firebase
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
 
-# Testing
-/coverage
-
-# Debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Local env files
+# Entorno
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# Vercel
-.vercel
-
-# Firebase
-.firebase/
-.firebaserc
-
-# OS files
+# Varios
 .DS_Store
-Thumbs.db
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
+*.pem
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

@@ -1,24 +1,46 @@
-# AgroTech - Hidalgo 🌽🛰️
+# 🌽 AgroTech - Hidalgo 🛰️
 
-Sistema inteligente de monitoreo y diagnóstico agrícola para la región de Hidalgo, México.
+Sistema inteligente de monitoreo y diagnóstico agrícola diseñado específicamente para fortalecer el campo en la región de Hidalgo, México.
 
-## 🚀 Características
-- **Monitoreo IoT**: Visualización en tiempo real de temperatura, humedad y evapotranspiración.
-- **Diagnóstico con IA**: Identificación de plagas y enfermedades mediante fotos o descripción de texto usando Gemini 1.5 Flash.
-- **Red Comunitaria**: Reportes locales de brotes para prevención regional.
-- **Gestión de Fincas**: Organización de terrenos y cultivos sincronizada con la nube.
+## 🚀 Características Principales
 
-## 🛠️ Tecnologías
-- **Next.js 15**: Framework de React para el frontend.
-- **Firebase**: Autenticación, Firestore (Base de datos) y Realtime Database (Sensores).
-- **Genkit**: Orquestación de IA generativa.
-- **Tailwind CSS & ShadCN UI**: Diseño moderno y profesional.
+- **🛰️ Monitoreo IoT en Tiempo Real**: Visualización de temperatura, humedad del suelo, humedad del aire, punto de rocío y evapotranspiración (ET) mediante sensores conectados.
+- **🧠 Diagnóstico Híbrido con IA**: Identificación de plagas y enfermedades mediante descripciones de texto o fotografías, utilizando Gemini 1.5 Flash y un motor experto local de respaldo.
+- **🛡️ Red de Prevención Local**: Sistema de reportes comunitarios para alertar sobre brotes de plagas en municipios como Actopan, Ixmiquilpan y Pachuca.
+- **📊 Gestión de Fincas**: Organización y seguimiento de múltiples terrenos sincronizados con la nube de Firebase.
+- **📄 Reportes Profesionales**: Generación de informes de salud del cultivo en formatos CSV y Word para trámites agrícolas.
 
-## 📦 Instalación
-1. Clona el repositorio.
-2. Instala las dependencias: `npm install`.
-3. Configura tus variables de entorno en un archivo `.env`.
-4. Corre el proyecto: `npm run dev`.
+## 🛠️ Tecnologías Utilizadas
+
+- **Frontend**: Next.js 15 (App Router), React 19, Tailwind CSS.
+- **UI Components**: ShadCN UI, Lucide Icons.
+- **Backend & Auth**: Firebase (Authentication, Firestore, Realtime Database).
+- **IA Generativa**: Google Genkit + Gemini 1.5 Flash.
+- **Gráficos**: Recharts.
+
+## 📦 Instalación y Configuración
+
+1. **Clonar el repositorio**:
+   ```bash
+   git clone https://github.com/TU_USUARIO/agrotech-hidalgo.git
+   cd agrotech-hidalgo
+   ```
+
+2. **Instalar dependencias**:
+   ```bash
+   npm install
+   ```
+
+3. **Variables de Entorno**:
+   Crea un archivo `.env` en la raíz con tus llaves de API:
+   ```env
+   GEMINI_API_KEY=tu_llave_aqui
+   ```
+
+4. **Ejecutar en desarrollo**:
+   ```bash
+   npm run dev
+   ```
 
 ---
-*Desarrollado para fortalecer el campo hidalguense.*
+*Desarrollado con ❤️ para los agricultores de Hidalgo.*
