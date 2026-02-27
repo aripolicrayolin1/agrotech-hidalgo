@@ -1,3 +1,4 @@
+
 "use client";
 
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
@@ -32,9 +33,11 @@ import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "@/hooks/use-translation";
 
 export default function DiagnosisPage() {
   const { toast } = useToast();
+  const { t } = useTranslation();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [diagnosis, setDiagnosis] = useState<CropDiagnosisOutput | null>(null);
   const [loading, setLoading] = useState(false);
@@ -55,8 +58,8 @@ export default function DiagnosisPage() {
         setDescription((prev) => prev + " " + transcript);
         setIsListening(false);
         toast({
-          title: "Voz capturada",
-          description: "Hemos añadido lo que dijiste al formulario.",
+          title: t('voice_captured'),
+          description: t('voice_captured_desc'),
         });
       };
 
@@ -66,13 +69,13 @@ export default function DiagnosisPage() {
 
       recognitionRef.current.onend = () => setIsListening(false);
     }
-  }, [toast]);
+  }, [toast, t]);
 
   const toggleListening = () => {
     if (!recognitionRef.current) {
       toast({
-        title: "No compatible",
-        description: "Tu navegador no soporta reconocimiento de voz.",
+        title: t('not_compatible'),
+        description: t('not_compatible_desc'),
         variant: "destructive"
       });
       return;
@@ -101,8 +104,8 @@ export default function DiagnosisPage() {
   const startDiagnosis = async () => {
     if (!selectedImage && !description.trim()) {
       toast({
-        title: "Faltan datos",
-        description: "Sube una foto o dicta los síntomas.",
+        title: t('missing_data'),
+        description: t('missing_data_desc'),
         variant: "destructive"
       });
       return;
@@ -161,7 +164,7 @@ export default function DiagnosisPage() {
         <header className="flex h-16 shrink-0 items-center justify-between px-6 border-b bg-white/80 backdrop-blur-md sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <SidebarTrigger />
-            <h1 className="text-xl font-bold">Diagnóstico Digital</h1>
+            <h1 className="text-xl font-bold">{t('digital_diagnosis')}</h1>
           </div>
         </header>
 
@@ -172,10 +175,10 @@ export default function DiagnosisPage() {
                 <CardHeader className="bg-primary/5">
                   <CardTitle className="text-2xl flex items-center gap-2">
                     <Camera className="h-6 w-6 text-primary" />
-                    Identificador de Plagas
+                    {t('pest_identifier')}
                   </CardTitle>
                   <CardDescription>
-                    Usa tu cámara o **dicta por voz** los síntomas para una respuesta rápida.
+                    {t('diagnosis_prompt')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6 pt-6">
@@ -185,7 +188,7 @@ export default function DiagnosisPage() {
                       <div className="bg-primary/10 p-6 rounded-full mb-4">
                         <Camera className="h-12 w-12 text-primary" />
                       </div>
-                      <p className="font-bold text-lg text-primary">Sube una foto del daño</p>
+                      <p className="font-bold text-lg text-primary">{t('upload_photo')}</p>
                     </div>
                   ) : (
                     <div className="relative aspect-video rounded-xl overflow-hidden shadow-2xl bg-black group">
@@ -198,7 +201,7 @@ export default function DiagnosisPage() {
 
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="symptoms" className="text-base font-bold">Describe o dicta el problema</Label>
+                      <Label htmlFor="symptoms" className="text-base font-bold">{t('describe_dictate')}</Label>
                       <Button 
                         variant={isListening ? "destructive" : "outline"} 
                         size="sm" 
@@ -206,13 +209,13 @@ export default function DiagnosisPage() {
                         onClick={toggleListening}
                       >
                         {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                        {isListening ? "Escuchando..." : "Dictar Síntomas"}
+                        {isListening ? t('listening') : t('dictate_symptoms')}
                       </Button>
                     </div>
                     <Input 
                       id="symptoms" 
                       className="h-14 text-lg border-primary/20"
-                      placeholder="Ej: Colonias blancas algodonosas en las hojas..." 
+                      placeholder={t('placeholder_symptoms')} 
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                     />
@@ -221,7 +224,7 @@ export default function DiagnosisPage() {
                 <CardFooter className="bg-muted/5 border-t p-6">
                   <Button className="w-full h-14 text-xl font-black rounded-xl" disabled={loading} onClick={startDiagnosis}>
                     {loading ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Zap className="mr-2 h-6 w-6 fill-white" />}
-                    OBTENER SOLUCIÓN
+                    {t('obtaining_solution')}
                   </Button>
                 </CardFooter>
               </Card>
@@ -235,15 +238,15 @@ export default function DiagnosisPage() {
                         <FileText className="h-16 w-16 opacity-10" />
                       )}
                       {diagnosis.diagnosis.isFallback && (
-                        <Badge className="absolute top-2 left-2 bg-orange-600">MODO RESPALDO</Badge>
+                        <Badge className="absolute top-2 left-2 bg-orange-600">{t('fallback_mode')}</Badge>
                       )}
                    </div>
                    <CardContent className="p-4 space-y-3">
                      <Button variant="outline" className="w-full font-bold" onClick={reset}>
-                       <RefreshCcw className="h-4 w-4 mr-2" /> Nueva Consulta
+                       <RefreshCcw className="h-4 w-4 mr-2" /> {t('new_query')}
                      </Button>
                      <Button className="w-full font-bold bg-destructive hover:bg-destructive/90 text-white" onClick={handleShareWithCommunity}>
-                        <Users className="h-4 w-4 mr-2" /> Reportar Brote
+                        <Users className="h-4 w-4 mr-2" /> {t('report_outbreak_btn')}
                      </Button>
                    </CardContent>
                 </Card>
@@ -252,7 +255,7 @@ export default function DiagnosisPage() {
                   <Card className="border-none shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <CardHeader className="border-b">
                       <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase mb-2">
-                        <ShieldCheck className="h-4 w-4" /> Diagnóstico de Precisión
+                        <ShieldCheck className="h-4 w-4" /> {t('precision_diagnosis')}
                       </div>
                       <CardTitle className="text-3xl font-black text-primary">
                         {diagnosis.diagnosis.identifiedProblem}
@@ -261,20 +264,20 @@ export default function DiagnosisPage() {
                     <CardContent className="space-y-8 pt-6">
                       <div className="grid grid-cols-2 gap-4">
                          <div className="p-4 rounded-xl bg-destructive/5 border border-destructive/20">
-                            <p className="text-[10px] font-bold uppercase text-destructive">Severidad</p>
+                            <p className="text-[10px] font-bold uppercase text-destructive">{t('severity')}</p>
                             <p className="text-xl font-black">{diagnosis.diagnosis.severity}</p>
                          </div>
                          <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
-                            <p className="text-[10px] font-bold uppercase text-primary">Confianza</p>
+                            <p className="text-[10px] font-bold uppercase text-primary">{t('confidence')}</p>
                             <p className="text-xl font-black">{diagnosis.diagnosis.confidence}</p>
                          </div>
                       </div>
 
                       <Tabs defaultValue="actions">
                         <TabsList className="grid w-full grid-cols-3">
-                          <TabsTrigger value="actions" className="font-bold">Acciones</TabsTrigger>
-                          <TabsTrigger value="commercial" className="font-bold">Compra</TabsTrigger>
-                          <TabsTrigger value="homemade" className="font-bold">Bio</TabsTrigger>
+                          <TabsTrigger value="actions" className="font-bold">{t('actions')}</TabsTrigger>
+                          <TabsTrigger value="commercial" className="font-bold">{t('buy')}</TabsTrigger>
+                          <TabsTrigger value="homemade" className="font-bold">{t('bio')}</TabsTrigger>
                         </TabsList>
                         <TabsContent value="actions" className="mt-6">
                           <ul className="space-y-3">
@@ -297,12 +300,12 @@ export default function DiagnosisPage() {
                               <div className="flex flex-col sm:flex-row gap-2">
                                 <Button className="flex-1 gap-2 bg-accent text-accent-foreground hover:bg-accent/80" asChild>
                                   <a href={product.locationLink || "#"} target="_blank" rel="noopener noreferrer">
-                                    <MapPin className="h-4 w-4" /> Ver Tiendas Cercanas
+                                    <MapPin className="h-4 w-4" /> {t('near_stores')}
                                   </a>
                                 </Button>
                                 <Button variant="outline" className="flex-1 gap-2" asChild>
                                   <a href={`https://listado.mercadolibre.com.mx/${product.name.replace(/\s/g, '+')}`} target="_blank" rel="noopener noreferrer">
-                                    <ShoppingBag className="h-4 w-4" /> Cotizar Online
+                                    <ShoppingBag className="h-4 w-4" /> {t('online_quote')}
                                   </a>
                                 </Button>
                               </div>
@@ -313,9 +316,9 @@ export default function DiagnosisPage() {
                           {diagnosis.diagnosis.homeMadeRemedies.map((remedy, idx) => (
                             <div key={idx} className="p-6 bg-green-50 rounded-2xl border-2 border-green-200">
                               <h5 className="font-black text-xl text-green-800 mb-2">{remedy.name}</h5>
-                              <p className="text-xs font-bold text-green-700 uppercase">Ingredientes:</p>
+                              <p className="text-xs font-bold text-green-700 uppercase">{t('ingredients')}</p>
                               <p className="text-sm mb-3">{remedy.ingredients.join(", ")}</p>
-                              <p className="text-xs font-bold text-green-700 uppercase">Instrucciones:</p>
+                              <p className="text-xs font-bold text-green-700 uppercase">{t('instructions')}</p>
                               <p className="text-sm italic">{remedy.instructions}</p>
                             </div>
                           ))}
