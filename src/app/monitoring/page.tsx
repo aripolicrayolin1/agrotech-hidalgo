@@ -31,13 +31,21 @@ import {
   Wind,
   CloudRain,
   Snowflake,
-  FileText
+  FileText,
+  Printer,
+  FileDown
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp, getApps } from "firebase/app";
 import { getDatabase, ref, onValue } from "firebase/database";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 
 const firebaseConfig = {
   databaseURL: "https://studio-3066950614-ac5b0-default-rtdb.firebaseio.com",
@@ -65,6 +73,7 @@ interface SensorPoint {
 
 export default function MonitoringPage() {
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("live");
   const [history, setHistory] = useState<SensorPoint[]>([]);
   const [currentValues, setCurrentValues] = useState<Omit<SensorPoint, 'time'>>({
     temp: 20,
@@ -153,16 +162,26 @@ export default function MonitoringPage() {
     const todayIndex = (new Date().getDay() + 6) % 7;
     return days.map((d, i) => ({
       time: d,
-      temp: i <= todayIndex ? currentValues.temp + (Math.random() * 4 - 2) : null,
-      humiditySoil: i <= todayIndex ? Math.max(0, Math.min(100, currentValues.humiditySoil + (Math.random() * 10 - 5))) : null,
-      humidityAir: i <= todayIndex ? Math.max(0, Math.min(100, currentValues.humidityAir + (Math.random() * 8 - 4))) : null,
-      et: i <= todayIndex ? Math.max(0, currentValues.et + (Math.random() * 0.6 - 0.3)) : null,
-      dewPoint: i <= todayIndex ? currentValues.dewPoint + (Math.random() * 3 - 1.5) : null
+      temp: i <= todayIndex ? currentValues.temp + (Math.random() * 4 - 2) : 0,
+      humiditySoil: i <= todayIndex ? Math.max(0, Math.min(100, currentValues.humiditySoil + (Math.random() * 10 - 5))) : 0,
+      humidityAir: i <= todayIndex ? Math.max(0, Math.min(100, currentValues.humidityAir + (Math.random() * 8 - 4))) : 0,
+      et: i <= todayIndex ? Math.max(0, currentValues.et + (Math.random() * 0.6 - 0.3)) : 0,
+      dewPoint: i <= todayIndex ? currentValues.dewPoint + (Math.random() * 3 - 1.5) : 0
     }));
   }, [currentValues]);
 
-  const downloadReport = () => {
-    const dataToExport = history.length > 0 ? history : hourlyData;
+  const downloadCsv = () => {
+    let dataToExport = history;
+    let filename = `reporte_agrotech_vivo_${new Date().toISOString().split('T')[0]}.csv`;
+
+    if (activeTab === 'today') {
+      dataToExport = hourlyData;
+      filename = `reporte_agrotech_hoy_${new Date().toISOString().split('T')[0]}.csv`;
+    } else if (activeTab === 'week') {
+      dataToExport = weeklyData;
+      filename = `reporte_agrotech_semana_${new Date().toISOString().split('T')[0]}.csv`;
+    }
+
     const headers = ["Fecha/Hora", "Temp (C)", "Hum. Suelo (%)", "Hum. Aire (%)", "ET (mm)", "Pto. Rocio (C)"];
     
     const csvContent = [
@@ -181,20 +200,32 @@ export default function MonitoringPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `reporte_agrotech_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", filename);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
     toast({
-      title: "Reporte Descargado",
-      description: "Se ha generado un archivo CSV con tus registros actuales.",
+      title: "Reporte CSV Descargado",
+      description: `Se ha generado el reporte de la pestaña "${activeTab.toUpperCase()}".`,
     });
   };
 
+  const downloadPdf = () => {
+    // Alerta antes de imprimir para que el usuario sepa qué hacer
+    toast({
+      title: "Preparando PDF",
+      description: "Se abrirá el menú de impresión. Selecciona 'Guardar como PDF' para obtener tu reporte.",
+    });
+    
+    setTimeout(() => {
+      window.print();
+    }, 1000);
+  };
+
   const renderCharts = (data: any[], isLive = false) => (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 printable-content">
       <ChartCard title="Temperatura" description={isLive ? "En vivo" : "Tendencia"} data={data} dataKey="temp" color="var(--color-temp)" unit="°C" type="area" />
       <ChartCard title="Hum. Suelo" description={isLive ? "En vivo" : "Tendencia"} data={data} dataKey="humiditySoil" color="var(--color-humiditySoil)" unit="%" type="line" />
       <ChartCard title="Hum. Aire" description={isLive ? "En vivo" : "Tendencia"} data={data} dataKey="humidityAir" color="var(--color-humidityAir)" unit="%" type="line" />
@@ -207,15 +238,30 @@ export default function MonitoringPage() {
     <SidebarProvider>
       <SidebarNav />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center justify-between px-6 border-b bg-white/80 backdrop-blur-md sticky top-0 z-10">
+        <header className="flex h-16 shrink-0 items-center justify-between px-6 border-b bg-white/80 backdrop-blur-md sticky top-0 z-10 no-print">
           <div className="flex items-center gap-2">
             <SidebarTrigger />
             <h1 className="text-xl font-bold">Analítica de Sensores</h1>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" onClick={downloadReport} className="hidden sm:flex items-center gap-2">
-              <Download className="h-4 w-4" /> Exportar CSV
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Download className="h-4 w-4" /> Exportar Reporte
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={downloadCsv} className="gap-2">
+                  <FileText className="h-4 w-4" /> Exportar CSV (Excel)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadPdf} className="gap-2">
+                  <FileDown className="h-4 w-4" /> Generar Reporte PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadPdf} className="gap-2">
+                  <Printer className="h-4 w-4" /> Imprimir Reporte
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Badge variant={isOnline ? "default" : "secondary"} className="gap-1.5 py-1 px-3">
               {isOnline ? <Wifi className="h-3.5 w-3.5 text-white animate-pulse" /> : <WifiOff className="h-3.5 w-3.5" />}
               {isOnline ? "Wokwi Conectado" : "Desconectado"}
@@ -223,9 +269,15 @@ export default function MonitoringPage() {
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 space-y-8">
-          <Tabs defaultValue="live" className="w-full">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <main className="flex-1 p-4 md:p-8 space-y-8 print:p-0">
+          <div className="only-print mb-8 text-center">
+            <h1 className="text-3xl font-bold text-primary">Reporte Agrícola AgroTech</h1>
+            <p className="text-muted-foreground">Región: Hidalgo, México | Fecha: {new Date().toLocaleDateString()}</p>
+            <p className="mt-2 font-bold uppercase">Tipo de reporte: {activeTab.toUpperCase()}</p>
+          </div>
+
+          <Tabs defaultValue="live" className="w-full" onValueChange={setActiveTab}>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 no-print">
               <div className="space-y-1">
                 <h2 className="text-2xl font-bold">Historial de Cultivo</h2>
                 <p className="text-muted-foreground text-sm">Monitoreo de 5 parámetros en tiempo real.</p>
@@ -236,9 +288,6 @@ export default function MonitoringPage() {
                   <TabsTrigger value="today" className="gap-2"><Clock className="h-3.5 w-3.5" /> Hoy</TabsTrigger>
                   <TabsTrigger value="week" className="gap-2"><CalendarDays className="h-3.5 w-3.5" /> Semana</TabsTrigger>
                 </TabsList>
-                <Button variant="outline" size="icon" className="sm:hidden" onClick={downloadReport}>
-                  <Download className="h-4 w-4" />
-                </Button>
               </div>
             </div>
 
@@ -247,15 +296,12 @@ export default function MonitoringPage() {
             <TabsContent value="week" className="space-y-6">{renderCharts(weeklyData)}</TabsContent>
           </Tabs>
 
-          <Card className="border-none shadow-lg">
+          <Card className="border-none shadow-lg no-print">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-primary" />
                 Alertas Recientes
               </CardTitle>
-              <Button variant="ghost" size="sm" onClick={downloadReport} className="text-primary gap-2">
-                <FileText className="h-4 w-4" /> Descargar Historial
-              </Button>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -288,13 +334,13 @@ function ChartCard({ title, description, data, dataKey, color, unit, type }: any
   const iconColor = dataKey === 'temp' ? 'text-orange-500' : dataKey.includes('Soil') ? 'text-blue-600' : dataKey.includes('Air') ? 'text-teal-500' : dataKey === 'et' ? 'text-purple-500' : 'text-cyan-500';
 
   return (
-    <Card className="border-none shadow-lg overflow-hidden group">
+    <Card className="border-none shadow-lg overflow-hidden group print:shadow-none print:border print:mb-4">
       <CardHeader className="pb-0 flex flex-row items-center justify-between">
         <div>
           <CardTitle className="text-md group-hover:text-primary transition-colors">{title}</CardTitle>
           <CardDescription className="text-[10px]">{description}</CardDescription>
         </div>
-        <Icon className={`h-5 w-5 ${iconColor}`} />
+        <Icon className={`h-5 w-5 ${iconColor} no-print`} />
       </CardHeader>
       <CardContent>
         <div className="h-[200px] w-full mt-4">

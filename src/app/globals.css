@@ -31,27 +31,6 @@
     --chart-5: 200 60% 50%;
     --radius: 0.75rem;
   }
-  .dark {
-    --background: 120 40% 5%;
-    --foreground: 120 10% 95%;
-    --card: 120 30% 8%;
-    --card-foreground: 120 10% 95%;
-    --popover: 120 30% 8%;
-    --popover-foreground: 120 10% 95%;
-    --primary: 120 50% 45%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 120 30% 15%;
-    --secondary-foreground: 120 10% 95%;
-    --muted: 120 30% 15%;
-    --muted-foreground: 120 10% 65%;
-    --accent: 56 100% 60%;
-    --accent-foreground: 120 50% 10%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 120 10% 95%;
-    --border: 120 30% 20%;
-    --input: 120 30% 20%;
-    --ring: 120 50% 45%;
-  }
 }
 
 @layer base {
@@ -61,4 +40,27 @@
   body {
     @apply bg-background text-foreground font-body;
   }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .only-print {
+    display: block !important;
+  }
+  body {
+    background: white !important;
+  }
+  .printable-content {
+    display: block !important;
+  }
+  .recharts-responsive-container {
+    width: 100% !important;
+    height: 300px !important;
+  }
+}
+
+.only-print {
+  display: none;
 }
