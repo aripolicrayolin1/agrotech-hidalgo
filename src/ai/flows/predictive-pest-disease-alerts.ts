@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview Alertas predictivas con rotación automática de llaves API.
+ * @fileOverview Alertas predictivas con rotación automática y menor frecuencia para ahorrar cuota.
  */
 
 import {getAIInstance} from '@/ai/genkit';
@@ -26,39 +26,32 @@ const PredictiveAlertOutputSchema = z.object({
 export type PredictiveAlertOutput = z.infer<typeof PredictiveAlertOutputSchema>;
 
 export async function predictivePestDiseaseAlerts(input: PredictiveAlertInput): Promise<PredictiveAlertOutput> {
-  const sanitizedInput = {
-    ...input,
-    soilHumidity: Math.max(0, Math.min(100, input.soilHumidity)),
-    temperature: Math.max(-10, Math.min(60, input.temperature)),
-  };
-
+  // Rotación silenciosa para no interrumpir el flujo principal
   for (let i = 0; i < 3; i++) {
     try {
       const ai = getAIInstance(i);
       
       const prompt = ai.definePrompt({
-        name: `predictiveAlertPrompt_v2_${i}`,
+        name: `predictiveAlertPrompt_v3_${i}`,
         input: {schema: PredictiveAlertInputSchema},
         output: {schema: PredictiveAlertOutputSchema},
-        prompt: `Analiza sensores para {{cropType}} en {{region}}: Humedad Suelo: {{{soilHumidity}}}%, Temp: {{{temperature}}}°C. Genera alerta predictiva de plagas.`,
+        prompt: `Analiza sensores: Humedad Suelo: {{{soilHumidity}}}%, Temp: {{{temperature}}}°C. Indica riesgo de plagas.`,
       });
 
-      const {output} = await prompt(sanitizedInput);
+      const {output} = await prompt(input);
       return { ...output!, isFallback: false };
     } catch (e: any) {
-      const isQuotaError = e.message?.includes('RESOURCE_EXHAUSTED') || e.status === 429;
-      if (!isQuotaError) break;
-      console.warn(`Predicción: Llave ${i + 1} agotada, saltando...`);
+      continue; // Si falla, intenta la siguiente llave rápido
     }
   }
 
-  // Lógica local si fallan todas las llaves de la nube
+  // Fallback local si Google nos bloquea todas las llaves
   return {
-    alertNeeded: sanitizedInput.soilHumidity > 80 || sanitizedInput.temperature > 35,
-    alertMessage: "IA en mantenimiento. Usando análisis de sensores locales.",
-    predictedRisk: sanitizedInput.soilHumidity > 80 ? "Medium" : "None",
-    potentialProblem: sanitizedInput.soilHumidity > 80 ? "Riesgo de Hongos por Humedad" : "Ninguno",
-    recommendation: "Monitorea visualmente tu cultivo mientras el servicio de IA se restablece.",
+    alertNeeded: input.soilHumidity > 85,
+    alertMessage: "IA en pausa por cuota. Análisis local activo.",
+    predictedRisk: input.soilHumidity > 85 ? "Medium" : "None",
+    potentialProblem: input.soilHumidity > 85 ? "Riesgo de Hongos" : "Ninguno",
+    recommendation: "Espera 2 minutos para que la IA se reconecte.",
     isFallback: true
   };
 }

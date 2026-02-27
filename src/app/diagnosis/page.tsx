@@ -1,4 +1,3 @@
-
 "use client";
 
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
@@ -69,71 +68,26 @@ export default function DiagnosisPage() {
       
       if (result.diagnosis.isWaiting) {
         toast({
-          title: "IA en Espera",
-          description: `Límite alcanzado a las ${now}. Por favor reintenta en un momento.`,
+          title: "Límite de Google Alcanzado",
+          description: "Tus 3 llaves están en pausa. Espera 15 segundos y presiona el botón de nuevo.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Análisis Completado",
+          description: "La IA ha procesado la imagen correctamente.",
         });
       }
     } catch (error) {
       console.error("Diagnosis failed", error);
       toast({
-        title: "Error de Diagnóstico",
-        description: "No se pudo completar el análisis. Por favor intenta de nuevo.",
+        title: "Error de Conexión",
+        description: "No se pudo conectar con el servicio de IA. Reintenta en un momento.",
         variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSendRegionalAlert = () => {
-    if (!diagnosis) return;
-
-    const savedAlerts = localStorage.getItem("community_alerts");
-    const currentAlerts = savedAlerts ? JSON.parse(savedAlerts) : [];
-
-    const newAlert = {
-      id: Date.now(),
-      region: "Tu Zona (Hidalgo)",
-      crop: "Detectado en Diagnóstico",
-      problem: diagnosis.diagnosis.identifiedProblem,
-      severity: diagnosis.diagnosis.severity === 'High' ? 'Alta' : 'Media',
-      distance: "En tu posición",
-      date: "Ahora",
-      lat: 20.1 + (Math.random() * 0.4),
-      lng: -98.8 - (Math.random() * 0.4)
-    };
-
-    localStorage.setItem("community_alerts", JSON.stringify([newAlert, ...currentAlerts]));
-
-    toast({
-      title: "Alerta Enviada",
-      description: "Se ha notificado a la comunidad sobre este brote detectado.",
-    });
-  };
-
-  const handleContactAgronomist = () => {
-    if (!diagnosis) return;
-
-    const expertChatKey = "chat_99";
-    const existingChat = localStorage.getItem(expertChatKey);
-    const chatHistory = existingChat ? JSON.parse(existingChat) : [];
-
-    const userMsg = { 
-      sender: "user", 
-      text: `Hola Ing. Ricardo, mi cultivo tiene: ${diagnosis.diagnosis.identifiedProblem}. ¿Qué me recomienda?` 
-    };
-    
-    const newHistory = [...chatHistory, userMsg];
-    localStorage.setItem(expertChatKey, JSON.stringify(newHistory));
-
-    toast({
-      title: "Mensaje Enviado",
-      description: "Tu diagnóstico ha sido enviado al Ing. Ricardo. Revisa la sección de Comunidad.",
-    });
-
-    setTimeout(() => {
-      router.push("/community");
-    }, 1500);
   };
 
   const reset = () => {
@@ -156,15 +110,34 @@ export default function DiagnosisPage() {
 
         <main className="flex-1 p-4 md:p-8 space-y-6">
           <div className="max-w-5xl mx-auto space-y-6">
-            {!diagnosis ? (
-              <Card className="border-none shadow-xl">
+            {!diagnosis || diagnosis.diagnosis.isWaiting ? (
+              <Card className={`border-none shadow-xl transition-all ${diagnosis?.diagnosis.isWaiting ? 'ring-2 ring-orange-500' : ''}`}>
                 <CardHeader>
-                  <CardTitle className="text-2xl">Identificador de Plagas y Enfermedades</CardTitle>
+                  <CardTitle className="text-2xl flex items-center gap-2">
+                    {diagnosis?.diagnosis.isWaiting && <Clock className="h-6 w-6 text-orange-500 animate-pulse" />}
+                    {diagnosis?.diagnosis.isWaiting ? "Modo de Espera Activo" : "Identificador de Cultivos"}
+                  </CardTitle>
                   <CardDescription>
-                    Sube una foto clara de las hojas o el tallo afectado para un análisis instantáneo con recomendaciones de compra y soluciones caseras.
+                    {diagnosis?.diagnosis.isWaiting 
+                      ? "Google ha pausado tus 3 llaves temporalmente. No cierres esta pestaña."
+                      : "Sube una foto de tu cultivo para un diagnóstico instantáneo."}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {diagnosis?.diagnosis.isWaiting && (
+                    <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800 space-y-2">
+                       <p className="font-bold flex items-center gap-2">
+                         <AlertTriangle className="h-4 w-4" /> 
+                         Estado de tus llaves: Agotadas temporalmente.
+                       </p>
+                       <ul className="list-disc pl-5 space-y-1">
+                         <li>Último intento: {lastAttemptTime}</li>
+                         <li>Siguiente paso: Espera a que el contador de Google se limpie (aprox. 15s).</li>
+                         <li>Tus datos y foto siguen guardados aquí abajo.</li>
+                       </ul>
+                    </div>
+                  )}
+
                   {!selectedImage ? (
                     <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl aspect-video flex flex-col items-center justify-center p-12 bg-muted/10 group hover:bg-muted/20 transition-all cursor-pointer relative overflow-hidden">
                       <Input 
@@ -177,32 +150,21 @@ export default function DiagnosisPage() {
                         <Camera className="h-10 w-10 text-primary" />
                       </div>
                       <p className="font-bold text-lg">Subir o Tomar Foto</p>
-                      <p className="text-sm text-muted-foreground text-center">Toca aquí para seleccionar una imagen de tu galería o cámara</p>
                     </div>
                   ) : (
                     <div className="relative aspect-video rounded-xl overflow-hidden group shadow-inner bg-black">
-                       <Image 
-                         src={selectedImage} 
-                         alt="Uploaded crop" 
-                         fill 
-                         className="object-contain"
-                       />
-                       <Button 
-                         variant="destructive" 
-                         size="icon" 
-                         className="absolute top-4 right-4 h-8 w-8 rounded-full shadow-lg z-20"
-                         onClick={reset}
-                       >
+                       <Image src={selectedImage} alt="Preview" fill className="object-contain" />
+                       <Button variant="destructive" size="icon" className="absolute top-4 right-4 h-8 w-8 rounded-full z-20" onClick={reset}>
                          <X className="h-4 w-4" />
                        </Button>
                     </div>
                   )}
 
                   <div className="space-y-2">
-                    <Label htmlFor="symptoms">Describe los síntomas (opcional)</Label>
+                    <Label htmlFor="symptoms">Describe los síntomas</Label>
                     <Input 
                       id="symptoms" 
-                      placeholder="Ej: manchas amarillas en las hojas inferiores..." 
+                      placeholder="Ej: manchas amarillas..." 
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                     />
@@ -210,19 +172,19 @@ export default function DiagnosisPage() {
                 </CardContent>
                 <CardFooter>
                   <Button 
-                    className="w-full h-12 text-lg font-bold shadow-lg" 
+                    className={`w-full h-12 text-lg font-bold shadow-lg ${diagnosis?.diagnosis.isWaiting ? 'bg-orange-600 hover:bg-orange-700' : ''}`}
                     disabled={!selectedImage || loading}
                     onClick={startDiagnosis}
                   >
                     {loading ? (
                       <>
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        Analizando Cultivo...
+                        Probando tus 3 llaves...
                       </>
                     ) : (
                       <>
-                        <Upload className="mr-2 h-5 w-5" />
-                        Iniciar Análisis IA
+                        <RefreshCcw className="mr-2 h-5 w-5" />
+                        {diagnosis?.diagnosis.isWaiting ? "Reintentar Ahora" : "Iniciar Análisis IA"}
                       </>
                     )}
                   </Button>
@@ -235,7 +197,6 @@ export default function DiagnosisPage() {
                       <Image src={selectedImage!} alt="Preview" fill className="object-cover" />
                    </div>
                    <CardContent className="p-4 bg-muted/50">
-                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Imagen Analizada</p>
                      <Button variant="outline" size="sm" className="w-full" onClick={reset}>
                        <RefreshCcw className="h-3 w-3 mr-2" /> Nueva Consulta
                      </Button>
@@ -247,56 +208,29 @@ export default function DiagnosisPage() {
                     <CardHeader className="flex flex-row items-start justify-between">
                       <div>
                         <CardTitle className="text-2xl flex items-center gap-2">
-                          {diagnosis.diagnosis.isWaiting ? (
-                            <Clock className="text-orange-500 h-7 w-7" />
-                          ) : diagnosis.diagnosis.isProblemDetected ? (
-                            <AlertTriangle className="text-accent-foreground h-7 w-7 fill-accent" />
-                          ) : (
-                            <CheckCircle2 className="text-primary h-7 w-7" />
-                          )}
-                          {diagnosis.diagnosis.isWaiting ? "IA en Espera" : "Resultados del Análisis"}
+                          <CheckCircle2 className="text-primary h-7 w-7" />
+                          Análisis Exitoso
                         </CardTitle>
                         <CardDescription>
-                          {diagnosis.diagnosis.isWaiting 
-                            ? `Último intento a las ${lastAttemptTime} (Tu Hora Local)` 
-                            : "Diagnóstico generado mediante IA avanzada"}
+                          Diagnóstico generado tras rotación de llaves.
                         </CardDescription>
                       </div>
-                      <Badge variant={diagnosis.diagnosis.confidence === 'High' ? 'default' : 'secondary'}>
-                        {diagnosis.diagnosis.isWaiting ? "Reintentando..." : `Confianza: ${diagnosis.diagnosis.confidence}`}
-                      </Badge>
+                      <Badge variant="default">Confianza: {diagnosis.diagnosis.confidence}</Badge>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                      <div>
-                        <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-3">Identificación</h4>
-                        <div className={`p-4 rounded-xl border ${diagnosis.diagnosis.isWaiting ? 'bg-orange-50 border-orange-200' : 'bg-primary/5 border-primary/20'}`}>
-                           <p className={`text-xl font-bold ${diagnosis.diagnosis.isWaiting ? 'text-orange-700' : 'text-primary'}`}>
-                             {diagnosis.diagnosis.identifiedProblem}
-                           </p>
-                           <div className="flex items-center gap-2 mt-2">
-                             <Badge variant="outline">Severidad: {diagnosis.diagnosis.severity}</Badge>
-                             {diagnosis.diagnosis.isWaiting && (
-                               <span className="text-xs text-orange-600 animate-pulse font-medium flex items-center gap-1">
-                                 <Loader2 className="h-3 w-3 animate-spin" /> Límite de Google. Reintentando...
-                               </span>
-                             )}
-                           </div>
-                        </div>
+                      <div className="p-4 rounded-xl border bg-primary/5 border-primary/20">
+                         <p className="text-xl font-bold text-primary">
+                           {diagnosis.diagnosis.identifiedProblem}
+                         </p>
+                         <Badge variant="outline" className="mt-2">Severidad: {diagnosis.diagnosis.severity}</Badge>
                       </div>
 
                       <Tabs defaultValue="actions" className="w-full">
                         <TabsList className="grid w-full grid-cols-3">
-                          <TabsTrigger value="actions" className="gap-2">
-                            <Info className="h-4 w-4" /> Acciones
-                          </TabsTrigger>
-                          <TabsTrigger value="commercial" className="gap-2">
-                            <ShoppingBag className="h-4 w-4" /> Comprar
-                          </TabsTrigger>
-                          <TabsTrigger value="homemade" className="gap-2">
-                            <Leaf className="h-4 w-4" /> Casero
-                          </TabsTrigger>
+                          <TabsTrigger value="actions">Acciones</TabsTrigger>
+                          <TabsTrigger value="commercial">Comprar</TabsTrigger>
+                          <TabsTrigger value="homemade">Casero</TabsTrigger>
                         </TabsList>
-
                         <TabsContent value="actions" className="mt-4 space-y-4">
                           <ul className="space-y-2">
                             {diagnosis.diagnosis.recommendedActions.map((action, idx) => (
@@ -307,90 +241,24 @@ export default function DiagnosisPage() {
                             ))}
                           </ul>
                         </TabsContent>
-
                         <TabsContent value="commercial" className="mt-4 space-y-4">
-                          {diagnosis.diagnosis.commercialProducts.length > 0 ? (
-                            <div className="grid gap-3">
-                              {diagnosis.diagnosis.commercialProducts.map((product, idx) => (
-                                <div key={idx} className="p-4 bg-white rounded-xl border border-primary/10 shadow-sm">
-                                  <div className="flex justify-between items-start mb-2">
-                                    <h5 className="font-bold text-primary">{product.name}</h5>
-                                    <Badge variant="secondary">Disponible</Badge>
-                                  </div>
-                                  <p className="text-sm text-muted-foreground mb-3">{product.description}</p>
-                                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground bg-muted/40 p-2 rounded-lg">
-                                    <MapPin className="h-3.5 w-3.5 text-primary" />
-                                    <span>Venta en: <span className="text-foreground">{product.localStores}</span></span>
-                                  </div>
-                                </div>
-                              ))}
-                              <Link href="/community" className="block w-full">
-                                <Button className="w-full mt-2" variant="outline">
-                                  <MapPin className="h-4 w-4 mr-2" /> Ver tiendas cercanas en Hidalgo <ArrowRight className="ml-2 h-4 w-4" />
-                                </Button>
-                              </Link>
+                          {diagnosis.diagnosis.commercialProducts.map((product, idx) => (
+                            <div key={idx} className="p-4 bg-white rounded-xl border shadow-sm">
+                              <h5 className="font-bold text-primary">{product.name}</h5>
+                              <p className="text-sm text-muted-foreground">{product.description}</p>
                             </div>
-                          ) : (
-                            <p className="text-sm text-center py-8 text-muted-foreground italic">No se requieren productos químicos específicos para este diagnóstico.</p>
-                          )}
+                          ))}
                         </TabsContent>
-
                         <TabsContent value="homemade" className="mt-4 space-y-4">
-                          {diagnosis.diagnosis.homeMadeRemedies.length > 0 ? (
-                            <div className="grid gap-4">
-                              {diagnosis.diagnosis.homeMadeRemedies.map((remedy, idx) => (
-                                <div key={idx} className="p-4 bg-green-50 rounded-xl border border-green-200 shadow-sm">
-                                  <h5 className="font-bold text-green-800 flex items-center gap-2 mb-3">
-                                    <Leaf className="h-4 w-4" /> {remedy.name}
-                                  </h5>
-                                  <div className="space-y-3">
-                                    <div>
-                                      <p className="text-xs font-bold text-green-700 uppercase tracking-wider mb-1">Ingredientes:</p>
-                                      <div className="flex flex-wrap gap-1">
-                                        {remedy.ingredients.map((ing, i) => (
-                                          <Badge key={i} variant="outline" className="bg-white/80 border-green-200">{ing}</Badge>
-                                        ))}
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <p className="text-xs font-bold text-green-700 uppercase tracking-wider mb-1">Preparación y Uso:</p>
-                                      <p className="text-sm text-green-900 leading-relaxed">{remedy.instructions}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
+                          {diagnosis.diagnosis.homeMadeRemedies.map((remedy, idx) => (
+                            <div key={idx} className="p-4 bg-green-50 rounded-xl border border-green-200 shadow-sm">
+                              <h5 className="font-bold text-green-800">{remedy.name}</h5>
+                              <p className="text-sm text-green-900">{remedy.instructions}</p>
                             </div>
-                          ) : (
-                            <p className="text-sm text-center py-8 text-muted-foreground italic">
-                              {diagnosis.diagnosis.isWaiting ? "Reintentando conectar para obtener remedios..." : "Cultivo sano. No se requieren remedios preventivos en este momento."}
-                            </p>
-                          )}
+                          ))}
                         </TabsContent>
                       </Tabs>
-
-                      {diagnosis.diagnosis.additionalNotes && (
-                        <div className="p-4 bg-muted/30 rounded-lg text-sm italic border-l-4 border-primary/40">
-                          {diagnosis.diagnosis.additionalNotes}
-                        </div>
-                      )}
                     </CardContent>
-                    <CardFooter className="bg-muted/20 border-t p-6 flex flex-col sm:flex-row gap-4">
-                      <Button 
-                        className="flex-1 font-bold gap-2" 
-                        onClick={handleSendRegionalAlert}
-                        disabled={diagnosis.diagnosis.isWaiting && !diagnosis.diagnosis.identifiedProblem}
-                      >
-                        <Share2 className="h-4 w-4" /> Enviar Alerta Regional
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        className="flex-1 font-bold gap-2" 
-                        onClick={handleContactAgronomist}
-                        disabled={diagnosis.diagnosis.isWaiting && !diagnosis.diagnosis.identifiedProblem}
-                      >
-                        <MessageSquare className="h-4 w-4" /> Contactar Agrónomo
-                      </Button>
-                    </CardFooter>
                   </Card>
                 </div>
               </div>

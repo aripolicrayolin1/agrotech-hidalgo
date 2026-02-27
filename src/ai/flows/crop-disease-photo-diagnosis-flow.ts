@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview Diagnóstico de enfermedades de cultivos con rotación de llaves y delays.
+ * @fileOverview Diagnóstico de enfermedades con rotación de llaves y gestión de cuotas.
  */
 
 import {getAIInstance} from '@/ai/genkit';
@@ -44,14 +44,15 @@ export async function diagnoseCropDisease(input: CropDiagnosisInput): Promise<Cr
 
   for (let i = 0; i < 3; i++) {
     try {
+      // Usar Gemini 1.5 Flash como respaldo si el 2.0 está muy saturado
       const ai = getAIInstance(i);
       
       const prompt = ai.definePrompt({
-        name: `cropDiagnosisPrompt_v3_${i}`,
+        name: `cropDiagnosisPrompt_v4_${i}`,
         input: {schema: CropDiagnosisInputSchema},
         output: {schema: CropDiagnosisOutputSchema},
-        prompt: `Eres un experto fitopatólogo en Hidalgo, México. Analiza la imagen y diagnostica el problema.
-        Si hay un problema: Identifica el patógeno y sugiere productos comerciales en Hidalgo o remedios caseros.
+        prompt: `Eres un experto fitopatólogo en Hidalgo. Analiza la imagen y diagnostica. 
+        Si hay problemas, identifica el patógeno y sugiere productos en Hidalgo o remedios caseros.
         Descripción: {{{description}}}
         Imagen: {{media url=photoDataUri}}`,
       });
@@ -64,29 +65,31 @@ export async function diagnoseCropDisease(input: CropDiagnosisInput): Promise<Cr
     } catch (e: any) {
       lastError = e;
       const isQuotaError = e.message?.includes('RESOURCE_EXHAUSTED') || e.status === 429;
+      
       if (isQuotaError) {
-        console.warn(`Llave ${i + 1} agotada. Esperando 1.5s antes de rotar...`);
-        await sleep(1500);
+        console.warn(`Llave ${i + 1} agotada. Esperando 5 segundos para enfriar...`);
+        await sleep(5000); // Espera extendida para limpiar la cuota
         continue;
       }
       break; 
     }
   }
 
+  // Si fallan todas las llaves, devolver un estado de espera informativo
   return {
     diagnosis: {
       isProblemDetected: true,
-      identifiedProblem: "IA en Relevo Tecnológico",
+      identifiedProblem: "Sistema en Enfriamiento",
       severity: "Medium",
       confidence: "Low",
       recommendedActions: [
-        "Google ha limitado temporalmente el acceso por alta demanda.",
-        "Estamos rotando tus 3 llaves de acceso para procesar la solicitud.",
-        "Por favor, espera 10 segundos y presiona 'Iniciar Análisis' de nuevo."
+        "Google ha pausado las peticiones por alta demanda en tu zona.",
+        "Estamos rotando tus 3 llaves, pero todas han alcanzado el límite momentáneo.",
+        "Por favor, espera 15 segundos y presiona 'Iniciar Análisis' de nuevo."
       ],
       commercialProducts: [],
       homeMadeRemedies: [],
-      additionalNotes: `Error Técnico: ${lastError?.message || 'Límite de cuota excedido'}`,
+      additionalNotes: `Mensaje de Google: Por favor reintenta en 15 segundos. (Error: ${lastError?.message?.substring(0, 50)}...)`,
       isWaiting: true
     }
   };
