@@ -1,10 +1,6 @@
 'use server';
 /**
  * @fileOverview This file implements a Genkit flow for diagnosing crop diseases or pests from a photo.
- *
- * - diagnoseCropDisease - A function that handles the AI-powered crop disease diagnosis process.
- * - CropDiagnosisInput - The input type for the diagnoseCropDisease function.
- * - CropDiagnosisOutput - The return type for the diagnoseCropDisease function.
  */
 
 import {ai} from '@/ai/genkit';
@@ -14,32 +10,32 @@ const CropDiagnosisInputSchema = z.object({
   photoDataUri: z
     .string()
     .describe(
-      "A photo of a crop, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+      "A photo of a crop as a data URI."
     ),
-  description: z.string().optional().describe('An optional description of the crop symptoms or observed issues.'),
+  description: z.string().optional().describe('Description of the symptoms.'),
 });
 export type CropDiagnosisInput = z.infer<typeof CropDiagnosisInputSchema>;
 
 const CropDiagnosisOutputSchema = z.object({
   diagnosis: z.object({
-    isProblemDetected: z.boolean().describe('True if a disease or pest is detected, false otherwise.'),
-    identifiedProblem: z.string().describe('The name of the identified disease or pest, or "None" if no problem is detected.'),
-    severity: z.enum(['Low', 'Medium', 'High', 'Not Applicable']).describe('The severity of the detected problem. "Not Applicable" if no problem is detected.'),
-    confidence: z.enum(['Low', 'Medium', 'High']).describe('The confidence level of the diagnosis.'),
-    recommendedActions: z.array(z.string()).describe('A list of recommended actions to address the detected problem.'),
+    isProblemDetected: z.boolean(),
+    identifiedProblem: z.string(),
+    severity: z.enum(['Low', 'Medium', 'High', 'Not Applicable']),
+    confidence: z.enum(['Low', 'Medium', 'High']),
+    recommendedActions: z.array(z.string()),
     commercialProducts: z.array(z.object({
-      name: z.string().describe('Nombre del producto o principio activo.'),
-      description: z.string().describe('Breve explicación de para qué sirve.'),
-      localStores: z.string().describe('Sugerencia de dónde encontrarlo en la región de Hidalgo (ej: "Agropecuarias en Actopan", "Tiendas especializadas en Pachuca").')
-    })).describe('Productos comerciales recomendados para la venta.'),
+      name: z.string(),
+      description: z.string(),
+      localStores: z.string()
+    })),
     homeMadeRemedies: z.array(z.object({
-      name: z.string().describe('Nombre del remedio casero.'),
-      ingredients: z.array(z.string()).describe('Lista de ingredientes fáciles de conseguir.'),
-      instructions: z.string().describe('Cómo prepararlo y aplicarlo.')
-    })).describe('Alternativas caseras y naturales de bajo costo.'),
-    additionalNotes: z.string().optional().describe('Any additional notes or observations regarding the diagnosis.'),
-    isWaiting: z.boolean().optional().describe('Flag indicating if the system is waiting due to quota limits.'),
-  }).describe('The detailed diagnosis of the crop.'),
+      name: z.string(),
+      ingredients: z.array(z.string()),
+      instructions: z.string()
+    })),
+    additionalNotes: z.string().optional(),
+    isWaiting: z.boolean().optional(),
+  }),
 });
 export type CropDiagnosisOutput = z.infer<typeof CropDiagnosisOutputSchema>;
 
@@ -51,18 +47,17 @@ const cropDiagnosisPrompt = ai.definePrompt({
   name: 'cropDiagnosisPrompt',
   input: {schema: CropDiagnosisInputSchema},
   output: {schema: CropDiagnosisOutputSchema},
-  prompt: `Eres un experto fitopatólogo con amplio conocimiento en enfermedades y plagas de cultivos, especialmente en la región de Hidalgo, México. 
-Tu tarea es analizar la imagen y la descripción para diagnosticar el problema.
+  prompt: `Eres un experto fitopatólogo en Hidalgo, México. Analiza la imagen y diagnostica el problema.
 
-IMPORTANTE:
-1. Si detectas un problema, debes proporcionar:
-   - 'commercialProducts': Lista productos específicos indicando comercios o zonas en Hidalgo donde se suelen conseguir (ej: Actopan, Ixmiquilpan, Pachuca).
-   - 'homeMadeRemedies': Proporciona al menos una alternativa ecológica o casera detallada para agricultores que prefieren no gastar o usar químicos.
-2. Si el cultivo está sano, indica 'isProblemDetected: false' y deja las listas de recomendaciones vacías.
+Si hay un problema:
+- Identifica el patógeno.
+- Sugiere productos comerciales disponibles en zonas como Actopan o Pachuca.
+- Da un remedio casero detallado (ingredientes y uso).
 
-Detalles del caso:
-{{#if description}}Descripción del agricultor: {{{description}}}{{/if}}
-Foto del cultivo: {{media url=photoDataUri}}`,
+Si no hay problema, indica que el cultivo está sano.
+
+Descripción: {{{description}}}
+Imagen: {{media url=photoDataUri}}`,
 });
 
 const cropDiagnosisFlow = ai.defineFlow(
@@ -82,27 +77,26 @@ const cropDiagnosisFlow = ai.defineFlow(
         }
       };
     } catch (e: any) {
-      if (e.message?.includes('RESOURCE_EXHAUSTED') || e.status === 429) {
-        console.warn(`IA Quota exhausted.`);
-        return {
-          diagnosis: {
-            isProblemDetected: true,
-            identifiedProblem: "IA en Espera (Límite de Google)",
-            severity: "Medium",
-            confidence: "Low",
-            recommendedActions: [
-              "El servicio gratuito de Google Gemini tiene un límite de peticiones por minuto.",
-              "Por favor, espera unos 15-30 segundos y presiona 'Iniciar Análisis' de nuevo.",
-              "Estamos procesando tu solicitud, no es un error estático."
-            ],
-            commercialProducts: [],
-            homeMadeRemedies: [],
-            additionalNotes: "La IA se reactivará automáticamente en breve. No te preocupes, esto ocurre solo por el alto tráfico en la versión de prueba.",
-            isWaiting: true
-          }
-        };
-      }
-      throw e;
+      const isQuotaError = e.message?.includes('RESOURCE_EXHAUSTED') || e.status === 429;
+      console.warn(`AI Error:`, e.message);
+      
+      return {
+        diagnosis: {
+          isProblemDetected: true,
+          identifiedProblem: isQuotaError ? "IA en Espera (Límite de Google)" : "Error de Conexión",
+          severity: "Medium",
+          confidence: "Low",
+          recommendedActions: isQuotaError ? [
+            "El servicio gratuito de Google Gemini ha alcanzado su límite diario o por minuto.",
+            "Por favor, espera unos 30 segundos antes de intentar de nuevo.",
+            "Si el error persiste por mucho tiempo, podría ser el límite diario de la cuenta gratuita."
+          ] : ["Hubo un problema al procesar la imagen. Reintenta en unos momentos."],
+          commercialProducts: [],
+          homeMadeRemedies: [],
+          additionalNotes: "Estamos trabajando para optimizar el uso de la IA y reducir estos bloqueos temporales.",
+          isWaiting: true
+        }
+      };
     }
   }
 );

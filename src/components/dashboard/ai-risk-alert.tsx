@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -22,9 +21,14 @@ export function AIRiskAlert({ sensorValues }: AIRiskAlertProps) {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const lastAnalyzedValues = useRef<string>("");
+  const lastUpdateRef = useRef<number>(0);
 
   useEffect(() => {
     async function getPrediction() {
+      // Evitar actualizaciones demasiado frecuentes (máximo una cada 60 segundos)
+      const now = Date.now();
+      if (now - lastUpdateRef.current < 60000 && prediction) return;
+
       const normalizedHumidity = sensorValues.humidity_soil > 100 
         ? Math.max(0, Math.min(100, (sensorValues.humidity_soil / 4095) * 100))
         : Math.max(0, Math.min(100, sensorValues.humidity_soil));
@@ -46,6 +50,7 @@ export function AIRiskAlert({ sensorValues }: AIRiskAlertProps) {
         });
         setPrediction(result);
         lastAnalyzedValues.current = currentValuesKey;
+        lastUpdateRef.current = Date.now();
       } catch (error) {
         console.error("Failed to fetch AI prediction", error);
       } finally {
@@ -54,8 +59,8 @@ export function AIRiskAlert({ sensorValues }: AIRiskAlertProps) {
       }
     }
 
-    // Aumentamos el debounce a 15 segundos para dar prioridad a la cuota del diagnóstico manual
-    const timeout = setTimeout(getPrediction, 15000);
+    // Aumentamos el retraso inicial para dar prioridad a otras peticiones
+    const timeout = setTimeout(getPrediction, 5000);
     return () => clearTimeout(timeout);
   }, [sensorValues, prediction]);
 
@@ -80,7 +85,7 @@ export function AIRiskAlert({ sensorValues }: AIRiskAlertProps) {
     <Card className={`border-none shadow-md transition-all duration-500 relative ${isRisk ? 'bg-accent/10 ring-1 ring-accent' : 'bg-primary/5 ring-1 ring-primary/20'}`}>
       {updating && (
         <div className="absolute top-2 right-2 opacity-50 flex items-center gap-2 text-[10px] font-medium text-primary">
-          <span className="animate-pulse">Sincronizando IA...</span>
+          <span className="animate-pulse">Analizando Sensores...</span>
           <Loader2 className="h-3 w-3 animate-spin" />
         </div>
       )}
@@ -94,42 +99,42 @@ export function AIRiskAlert({ sensorValues }: AIRiskAlertProps) {
             ) : (
               <ShieldCheck className="text-primary h-5 w-5" />
             )}
-            {isFallback ? 'Análisis de Respaldo Local' : 'Análisis Predictivo IA'}
+            {isFallback ? 'Análisis de Respaldo' : 'IA Predictiva'}
           </CardTitle>
           <CardDescription>
-            {isFallback ? 'Modo de emergencia por saturación de cuota' : 'Gemini analizando datos de Wokwi'}
+            Monitoreo inteligente de riesgos
           </CardDescription>
         </div>
         {prediction && (
-          <Badge variant={prediction.predictedRisk === 'High' ? 'destructive' : prediction.predictedRisk === 'Medium' ? 'secondary' : 'default'} className="uppercase">
+          <Badge variant={prediction.predictedRisk === 'High' ? 'destructive' : prediction.predictedRisk === 'Medium' ? 'secondary' : 'default'} className="uppercase text-[10px]">
             Riesgo: {prediction.predictedRisk}
           </Badge>
         )}
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="bg-white/60 p-4 rounded-lg">
-          <h4 className="font-semibold text-sm mb-1 flex items-center gap-2">
-            <Zap className="h-4 w-4 text-accent-foreground" />
-            Diagnóstico
+        <div className="bg-white/60 p-3 rounded-lg">
+          <h4 className="font-semibold text-xs mb-1 flex items-center gap-2">
+            <Zap className="h-3 w-3 text-accent-foreground" />
+            Estado Actual
           </h4>
-          <p className="text-sm text-foreground/80 leading-relaxed">
+          <p className="text-xs text-foreground/80 leading-relaxed">
             {prediction?.alertMessage}
           </p>
         </div>
         
         {isRisk && (
-          <div className="bg-destructive/10 p-4 rounded-lg border border-destructive/20">
-            <h4 className="font-semibold text-sm mb-1 text-destructive">Alerta de Plaga/Hongo</h4>
-            <p className="text-sm font-medium">{prediction?.potentialProblem}</p>
+          <div className="bg-destructive/10 p-3 rounded-lg border border-destructive/20">
+            <h4 className="font-semibold text-xs mb-1 text-destructive">Brote Detectado</h4>
+            <p className="text-xs font-medium">{prediction?.potentialProblem}</p>
           </div>
         )}
 
-        <div className="bg-primary/10 p-4 rounded-lg border border-primary/20">
-          <h4 className="font-semibold text-sm mb-1 text-primary flex items-center gap-2">
-            <Info className="h-4 w-4" />
-            Acción Preventiva
+        <div className="bg-primary/10 p-3 rounded-lg border border-primary/20">
+          <h4 className="font-semibold text-xs mb-1 text-primary flex items-center gap-2">
+            <Info className="h-3 w-3" />
+            Recomendación
           </h4>
-          <p className="text-sm italic">{prediction?.recommendation}</p>
+          <p className="text-xs italic">{prediction?.recommendation}</p>
         </div>
       </CardContent>
     </Card>
