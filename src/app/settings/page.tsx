@@ -7,21 +7,25 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Mail, MapPin, Save, Bell, Shield, Loader2, Phone, MessageSquare } from "lucide-react";
+import { User, Mail, MapPin, Save, Bell, Shield, Loader2, Phone, MessageSquare, Send } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/firebase/auth/use-user";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
+import { sendTestNotification } from "@/app/actions/notifications";
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const { user, loading } = useUser();
+  const { user, loading: userLoading } = useUser();
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSendingTest, setIsSendingTest] = useState(false);
+
   const [profile, setProfile] = useState({
     name: "",
     email: "",
     location: "Actopan, Hidalgo",
-    bio: "Agricultor dedicado al cultivo de maíz y leguminosas."
+    phone: ""
   });
 
   const [notifications, setNotifications] = useState({
@@ -33,31 +37,58 @@ export default function SettingsPage() {
   useEffect(() => {
     const savedProfile = localStorage.getItem("user_profile");
     if (savedProfile) {
-      const parsed = JSON.parse(savedProfile);
+      setProfile(JSON.parse(savedProfile));
+    } else if (user) {
       setProfile(prev => ({
         ...prev,
-        ...parsed
-      }));
-    }
-
-    if (user) {
-      setProfile(prev => ({
-        ...prev,
-        name: user.displayName || prev.name || "Agricultor",
-        email: user.email || prev.email || ""
+        name: user.displayName || "",
+        email: user.email || ""
       }));
     }
   }, [user]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setIsSaving(true);
     localStorage.setItem("user_profile", JSON.stringify(profile));
+    await new Promise(r => setTimeout(r, 800)); // Simulación de guardado
+    setIsSaving(false);
     toast({
       title: "Configuración Guardada",
       description: "Tus preferencias han sido actualizadas correctamente."
     });
   };
 
-  if (loading) {
+  const handleSendTest = async (type: 'sms' | 'email') => {
+    const target = type === 'email' ? profile.email : profile.phone;
+    
+    if (!target) {
+      toast({
+        title: "Dato faltante",
+        description: `Por favor ingresa un ${type === 'email' ? 'correo' : 'teléfono'} válido.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsSendingTest(true);
+    try {
+      const result = await sendTestNotification(type, target, profile.name);
+      toast({
+        title: "Prueba Iniciada",
+        description: `${result.message}. (Recuerda que en el Hackathon necesitas una API KEY real para recibirlo físicamente).`
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo conectar con el servicio de mensajería.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
+
+  if (userLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -95,7 +126,7 @@ export default function SettingsPage() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label>Nombre</Label>
+                    <Label>Nombre Completo</Label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input 
@@ -107,13 +138,14 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Ubicación</Label>
+                    <Label>Teléfono Celular</Label>
                     <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input 
                         className="pl-10" 
-                        value={profile.location} 
-                        onChange={(e) => setProfile({...profile, location: e.target.value})} 
+                        placeholder="+52 771 123 4567"
+                        value={profile.phone} 
+                        onChange={(e) => setProfile({...profile, phone: e.target.value})} 
                       />
                     </div>
                   </div>
@@ -123,53 +155,60 @@ export default function SettingsPage() {
               <Card className="border-none shadow-lg">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Bell className="h-5 w-5 text-primary" /> Notificaciones
+                    <Bell className="h-5 w-5 text-primary" /> Alertas de Riesgo
                   </CardTitle>
-                  <CardDescription>Recibe alertas de plagas en tu zona.</CardDescription>
+                  <CardDescription>Configura cómo quieres recibir avisos urgentes.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
+                    <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <Mail className="h-4 w-4 text-muted-foreground" />
                         <Label className="text-base">Correo Electrónico</Label>
                       </div>
-                      <p className="text-[10px] text-muted-foreground">Recibe reportes técnicos semanales.</p>
+                      <p className="text-[10px] text-muted-foreground">Reportes semanales y alertas.</p>
                     </div>
-                    <Switch 
-                      checked={notifications.email} 
-                      onCheckedChange={(v) => setNotifications({...notifications, email: v})} 
-                    />
+                    <div className="flex flex-col items-end gap-2">
+                      <Switch 
+                        checked={notifications.email} 
+                        onCheckedChange={(v) => setNotifications({...notifications, email: v})} 
+                      />
+                      {notifications.email && (
+                        <Button variant="link" size="sm" className="h-auto p-0 text-[10px]" onClick={() => handleSendTest('email')} disabled={isSendingTest}>
+                          Enviar prueba
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
+                    <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                        <Label className="text-base">Alertas SMS (Celular)</Label>
+                        <Label className="text-base">SMS Crítico</Label>
                       </div>
-                      <p className="text-[10px] text-muted-foreground">Avisos urgentes de plagas cercanas.</p>
+                      <p className="text-[10px] text-muted-foreground">Aviso instantáneo de plaga cercana.</p>
                     </div>
-                    <Switch 
-                      checked={notifications.sms} 
-                      onCheckedChange={(v) => setNotifications({...notifications, sms: v})} 
-                    />
+                    <div className="flex flex-col items-end gap-2">
+                      <Switch 
+                        checked={notifications.sms} 
+                        onCheckedChange={(v) => setNotifications({...notifications, sms: v})} 
+                      />
+                      {notifications.sms && (
+                        <Button variant="link" size="sm" className="h-auto p-0 text-[10px]" onClick={() => handleSendTest('sms')} disabled={isSendingTest}>
+                          Enviar prueba
+                        </Button>
+                      )}
+                    </div>
                   </div>
 
-                  {notifications.sms && (
-                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                      <Label className="text-xs">Número de Teléfono</Label>
-                      <Input placeholder="+52 771 123 4567" className="h-9" />
-                    </div>
-                  )}
-
                   <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
+                    <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <Bell className="h-4 w-4 text-muted-foreground" />
-                        <Label className="text-base">Notificaciones Push</Label>
+                        <Label className="text-base">Push (Navegador)</Label>
                       </div>
-                      <p className="text-[10px] text-muted-foreground">Alertas en tiempo real en el navegador.</p>
+                      <p className="text-[10px] text-muted-foreground">Alertas en tiempo real mientras usas la app.</p>
                     </div>
                     <Switch 
                       checked={notifications.push} 
@@ -180,22 +219,19 @@ export default function SettingsPage() {
               </Card>
             </div>
 
-            <Card className="border-none shadow-lg">
+            <Card className="border-none shadow-lg bg-primary/5 border-primary/20">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-primary" /> Privacidad y Seguridad
+                <CardTitle className="flex items-center gap-2 text-primary">
+                  <Shield className="h-5 w-5" /> Configuración de Enlace
                 </CardTitle>
+                <CardDescription>
+                  Para el Hackathon Praxis: Se requiere configurar las API KEYS de Twilio o SendGrid en el servidor para activar el envío físico.
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Tus datos de sensores y ubicación están protegidos por Firebase Hidalgo. 
-                  Solo tú puedes ver los datos históricos de tus fincas.
-                </p>
-                <Button variant="outline" size="sm">Ver términos de servicio</Button>
-              </CardContent>
-              <CardFooter className="border-t bg-muted/5 flex justify-end p-4">
-                <Button className="font-bold w-full sm:w-auto" onClick={handleSave}>
-                  <Save className="h-4 w-4 mr-2" /> Guardar Todo
+              <CardFooter className="flex justify-end p-6 border-t">
+                <Button className="font-bold w-full sm:w-auto" onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                  {isSaving ? "Guardando..." : "Guardar Preferencias"}
                 </Button>
               </CardFooter>
             </Card>
