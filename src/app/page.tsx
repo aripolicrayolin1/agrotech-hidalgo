@@ -7,7 +7,7 @@ import { SensorStats } from "@/components/dashboard/sensor-stats";
 import { AIRiskAlert } from "@/components/dashboard/ai-risk-alert";
 import { CommunityAlerts } from "@/components/dashboard/community-alerts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Activity, Bell, Info, TrendingUp, AlertTriangle, CheckCircle2, Droplets, Thermometer } from "lucide-react";
+import { Activity, Bell, Info, TrendingUp, AlertTriangle, CheckCircle2, Droplets, Thermometer, User } from "lucide-react";
 import Image from "next/image";
 import { 
   AreaChart, 
@@ -30,6 +30,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp, getApps } from "firebase/app";
 import { getDatabase, ref, onValue } from "firebase/database";
+import { useUser } from "@/firebase/auth/use-user";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const firebaseConfig = {
   databaseURL: "https://studio-3066950614-ac5b0-default-rtdb.firebaseio.com",
@@ -56,6 +58,7 @@ interface Notification {
 }
 
 export default function Home() {
+  const { user, loading: userLoading } = useUser();
   const [sensorValues, setSensorValues] = useState({
     humidity_soil: 0,
     temp: 0,
@@ -71,27 +74,20 @@ export default function Home() {
   
   const notifiedEvents = useRef<Set<string>>(new Set());
 
-  // Función para calcular salud basada en sensores (Lógica agronómica simple)
   const calculateHealth = (values: typeof sensorValues) => {
     let score = 100;
-    
-    // Normalización de humedad de suelo (asumiendo 4095 como 100%)
     const normSoil = values.humidity_soil > 100 
       ? (values.humidity_soil / 4095) * 100 
       : values.humidity_soil;
 
-    // Penalización por falta o exceso de agua (Ideal 60-85%)
     if (normSoil < 40) score -= 25;
     if (normSoil > 90) score -= 15;
-    
-    // Penalización por temperatura (Ideal 18-30°C)
     if (values.temp > 35) score -= 30;
     if (values.temp < 10) score -= 20;
 
     return Math.max(0, Math.min(100, score));
   };
 
-  // Generar datos de salud dinámicos basados en la lectura actual
   const performanceData = useMemo(() => {
     const currentHealth = calculateHealth(sensorValues);
     const baseHealth = isOnline ? currentHealth : 85;
@@ -102,7 +98,7 @@ export default function Home() {
       { month: "Mar", health: 92 },
       { month: "Abr", health: 80 },
       { month: "May", health: 85 },
-      { month: "Jun", health: baseHealth }, // El mes actual reacciona a los sensores
+      { month: "Jun", health: baseHealth },
     ];
   }, [sensorValues, isOnline]);
 
@@ -260,18 +256,15 @@ export default function Home() {
 
             <div className="flex items-center gap-2 border-l pl-4">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold">Juan Pérez</p>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Agricultor Hidalgo</p>
+                <p className="text-sm font-bold">{user?.displayName || (userLoading ? "Cargando..." : "Agricultor")}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{user?.email || "Hidalgo, MX"}</p>
               </div>
-              <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center border-2 border-primary/40 overflow-hidden">
-                 <Image 
-                   src="https://picsum.photos/seed/farmer/100/100" 
-                   alt="Profile" 
-                   width={32} 
-                   height={32} 
-                   className="object-cover"
-                 />
-              </div>
+              <Avatar className="h-8 w-8 border-2 border-primary/40">
+                <AvatarImage src={user?.photoURL || ""} alt="Profile" />
+                <AvatarFallback className="bg-primary/20 text-primary">
+                  <User className="h-4 w-4" />
+                </AvatarFallback>
+              </Avatar>
             </div>
           </div>
         </header>

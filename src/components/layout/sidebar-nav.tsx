@@ -9,8 +9,8 @@ import {
   Settings, 
   LogOut,
   Leaf,
-  UserCircle,
-  LogIn
+  LogIn,
+  User
 } from "lucide-react";
 import {
   Sidebar,
@@ -66,9 +66,9 @@ export function SidebarNav() {
           <div className="px-4 py-2 group-data-[collapsible=icon]:hidden">
             <div className="flex items-center gap-3 p-2 bg-primary/5 rounded-xl border border-primary/10">
               <Avatar className="h-8 w-8 border-2 border-primary/20">
-                <AvatarImage src={user.photoURL || ""} />
+                <AvatarImage src={user.photoURL || ""} alt={user.displayName || ""} />
                 <AvatarFallback className="bg-primary/20 text-primary">
-                  {user.displayName?.charAt(0) || user.email?.charAt(0)}
+                  {user.displayName?.charAt(0) || user.email?.charAt(0) || <User className="h-4 w-4" />}
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-col min-w-0">
@@ -101,7 +101,7 @@ export function SidebarNav() {
       </SidebarContent>
       <SidebarFooter className="border-t p-4">
         <SidebarMenu>
-          {!user ? (
+          {!user && !loading ? (
             <SidebarMenuItem>
               <SidebarMenuButton asChild tooltip="Entrar">
                 <Link href="/login">
