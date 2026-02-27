@@ -1,11 +1,10 @@
-
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, MapPin, Calendar, ArrowRight, Plus, AlertTriangle, X, Info, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Dialog, 
@@ -17,9 +16,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useFirestore, useUser, useCollection } from "@/firebase";
+import { collection, doc, setDoc, serverTimestamp, query, orderBy, limit } from "firebase/firestore";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 interface Alert {
-  id: number;
+  id: string;
   region: string;
   crop: string;
   problem: string;
@@ -28,11 +31,27 @@ interface Alert {
   date: string;
   lat: number;
   lng: number;
+  userId?: string;
+  createdAt?: any;
 }
 
 export function CommunityAlerts() {
   const { toast } = useToast();
-  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const db = useFirestore();
+  const { user } = useUser();
+  
+  const alertsCollectionRef = useMemo(() => {
+    if (!db) return null;
+    return collection(db, "community_alerts");
+  }, [db]);
+
+  const alertsQuery = useMemo(() => {
+    if (!alertsCollectionRef) return null;
+    return query(alertsCollectionRef, orderBy("createdAt", "desc"), limit(10));
+  }, [alertsCollectionRef]);
+
+  const { data: alerts, loading: alertsLoading } = useCollection(alertsQuery);
+
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
@@ -44,46 +63,6 @@ export function CommunityAlerts() {
     crop: "",
     problem: ""
   });
-
-  useEffect(() => {
-    const initialAlerts: Alert[] = [
-      {
-        id: 1,
-        region: "Actopan",
-        crop: "Cebada",
-        problem: "Tizón Foliar Detectado",
-        severity: "Alta",
-        distance: "12km",
-        date: "Hoy, 10:30 AM",
-        lat: 20.2687,
-        lng: -98.9413
-      },
-      {
-        id: 2,
-        region: "Pachuca",
-        crop: "Tomate",
-        problem: "Mosca Blanca",
-        severity: "Media",
-        distance: "25km",
-        date: "Ayer",
-        lat: 20.1011,
-        lng: -98.7591
-      },
-      {
-        id: 3,
-        region: "Ixmiquilpan",
-        crop: "Maíz",
-        problem: "Gusano Cogollero",
-        severity: "Alta",
-        distance: "40km",
-        date: "Hace 2 días",
-        lat: 20.4831,
-        lng: -99.2192
-      }
-    ];
-    const saved = localStorage.getItem("community_alerts");
-    setAlerts(saved ? JSON.parse(saved) : initialAlerts);
-  }, []);
 
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
@@ -113,7 +92,7 @@ export function CommunityAlerts() {
         setLoadingLocation(false);
         toast({
           title: "Error de ubicación",
-          description: "No pudimos obtener tu ubicación. Por favor, asegúrate de dar permisos de GPS.",
+          description: "No pudimos obtener tu ubicación real.",
           variant: "destructive"
         });
       },
@@ -122,6 +101,7 @@ export function CommunityAlerts() {
   };
 
   const handleReport = () => {
+    if (!db || !alertsCollectionRef) return;
     if (!newAlert.region || !newAlert.problem) {
       toast({
         title: "Error",
@@ -131,32 +111,42 @@ export function CommunityAlerts() {
       return;
     }
 
-    // Usar coordenadas reales si están disponibles, sino usar un fallback en Hidalgo
     const finalLat = userCoords?.lat || (20.1 + (Math.random() * 0.4));
     const finalLng = userCoords?.lng || (-98.8 - (Math.random() * 0.4));
 
-    const alert: Alert = {
-      id: Date.now(),
+    const alertId = Date.now().toString();
+    const alertDocRef = doc(alertsCollectionRef, alertId);
+    
+    const alertData = {
       region: newAlert.region,
       crop: newAlert.crop || "Varios",
       problem: newAlert.problem,
       severity: "Alta",
-      distance: userCoords ? "En tu posición" : "Cerca de ti",
-      date: "Recién reportado",
+      distance: userCoords ? "Cerca de ti" : "Hidalgo, MX",
+      date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       lat: finalLat,
-      lng: finalLng
+      lng: finalLng,
+      userId: user?.uid || "anónimo",
+      createdAt: serverTimestamp()
     };
 
-    const updated = [alert, ...alerts];
-    setAlerts(updated);
-    localStorage.setItem("community_alerts", JSON.stringify(updated));
+    setDoc(alertDocRef, alertData)
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: alertDocRef.path,
+          operation: 'write',
+          requestResourceData: alertData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
+
     setIsReportOpen(false);
     setNewAlert({ region: "", crop: "", problem: "" });
-    setUserCoords(null); // Reset coords
+    setUserCoords(null);
     
     toast({
-      title: "Alerta Regional Enviada",
-      description: "Tu reporte ha sido geolocalizado y compartido con la comunidad."
+      title: "Alerta Enviada",
+      description: "Tu reporte ha sido compartido con toda la red de Hidalgo."
     });
   };
 
@@ -175,58 +165,64 @@ export function CommunityAlerts() {
       </CardHeader>
       <CardContent className="p-0 flex-1 overflow-auto">
         <div className="divide-y">
-          {alerts.map((alert) => (
-            <div key={alert.id} className="p-4 hover:bg-muted/30 transition-colors group">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                  <MapPin className="h-3 w-3" />
-                  {alert.region} • {alert.distance}
-                </div>
-                <Badge variant={alert.severity === 'Alta' ? 'destructive' : 'secondary'} className="text-[10px] px-1.5 py-0 h-4">
-                  {alert.severity}
-                </Badge>
-              </div>
-              <h4 className="font-bold text-sm group-hover:text-primary transition-colors">
-                {alert.problem}
-              </h4>
-              <p className="text-xs text-muted-foreground mb-3">Cultivo: {alert.crop}</p>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                  <Calendar className="h-3 w-3" />
-                  {alert.date}
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-7 text-xs px-2 gap-1 group-hover:translate-x-1 transition-transform"
-                  onClick={() => openMap(alert)}
-                >
-                  Ver mapa <ArrowRight className="h-3 w-3" />
-                </Button>
-              </div>
+          {alertsLoading ? (
+            <div className="p-8 text-center flex flex-col items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <span className="text-xs text-muted-foreground">Cargando alertas...</span>
             </div>
-          ))}
+          ) : alerts.length === 0 ? (
+            <div className="p-8 text-center text-xs text-muted-foreground italic">
+              No hay alertas recientes en la región.
+            </div>
+          ) : (
+            alerts.map((alert: any) => (
+              <div key={alert.id} className="p-4 hover:bg-muted/30 transition-colors group">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    <MapPin className="h-3 w-3" />
+                    {alert.region} • {alert.distance}
+                  </div>
+                  <Badge variant={alert.severity === 'Alta' ? 'destructive' : 'secondary'} className="text-[10px] px-1.5 py-0 h-4">
+                    {alert.severity}
+                  </Badge>
+                </div>
+                <h4 className="font-bold text-sm group-hover:text-primary transition-colors">
+                  {alert.problem}
+                </h4>
+                <p className="text-xs text-muted-foreground mb-3">Cultivo: {alert.crop}</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <Calendar className="h-3 w-3" />
+                    {alert.date}
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-7 text-xs px-2 gap-1 group-hover:translate-x-1 transition-transform"
+                    onClick={() => openMap(alert)}
+                  >
+                    Ver mapa <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </CardContent>
       <div className="p-4 bg-muted/20 border-t">
-        <Button className="w-full font-semibold shadow-sm" size="sm" onClick={() => setIsReportOpen(true)}>
+        <Button className="w-full font-semibold shadow-sm" size="sm" onClick={() => setIsReportOpen(true)} disabled={!user}>
           <Plus className="h-4 w-4 mr-2" /> Reportar Brote Local
         </Button>
       </div>
 
-      {/* Mapa de Google Maps */}
       <Dialog open={isMapOpen} onOpenChange={setIsMapOpen}>
         <DialogContent className="sm:max-w-3xl p-0 overflow-hidden border-none bg-background">
           <DialogHeader className="p-6 pb-2">
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5 text-primary" />
-              Ubicación Geográfica: {selectedAlert?.region}
+              Ubicación: {selectedAlert?.region}
             </DialogTitle>
-            <DialogDescription>
-              Referencia real del reporte comunitario en Hidalgo.
-            </DialogDescription>
           </DialogHeader>
-          
           <div className="relative h-[450px] w-full bg-muted">
             {selectedAlert && (
               <iframe
@@ -238,53 +234,19 @@ export function CommunityAlerts() {
                 src={`https://www.google.com/maps?q=${selectedAlert.lat},${selectedAlert.lng}&z=14&output=embed`}
               />
             )}
-            
-            {/* Overlay de información sobre el mapa */}
-            {selectedAlert && (
-              <div className="absolute bottom-4 left-4 right-4 bg-white/95 backdrop-blur-sm rounded-xl shadow-2xl border border-primary/20 p-4 z-10">
-                <div className="flex justify-between items-start mb-2">
-                   <div>
-                     <Badge variant={selectedAlert.severity === 'Alta' ? 'destructive' : 'secondary'} className="mb-1">
-                       {selectedAlert.severity} Riesgo
-                     </Badge>
-                     <h4 className="font-bold text-lg text-foreground">{selectedAlert.problem}</h4>
-                   </div>
-                   <Button variant="ghost" size="icon" onClick={() => setIsMapOpen(false)}>
-                     <X className="h-4 w-4" />
-                   </Button>
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                   <div className="flex items-center gap-2 text-muted-foreground">
-                     <MapPin className="h-4 w-4 text-primary" />
-                     <span>{selectedAlert.region}</span>
-                   </div>
-                   <div className="flex items-center gap-2 text-muted-foreground">
-                     <Calendar className="h-4 w-4 text-primary" />
-                     <span>{selectedAlert.date}</span>
-                   </div>
-                   <div className="col-span-2 p-2 bg-primary/5 rounded border border-primary/10 flex items-center gap-2">
-                     <Info className="h-4 w-4 text-primary" />
-                     <span className="text-xs">Cultivo: <span className="font-bold text-foreground">{selectedAlert.crop}</span></span>
-                   </div>
-                </div>
-              </div>
-            )}
           </div>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isReportOpen} onOpenChange={(open) => {
-        setIsReportOpen(open);
-        if (open) handleGetLocation(); // Intentar obtener ubicación al abrir
-      }}>
+      <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
               Reportar Brote en Campo
             </DialogTitle>
             <DialogDescription>
-              Avisa a otros agricultores de Hidalgo. Usaremos tu GPS para fijar el punto exacto.
+              Avisa a otros agricultores. Usaremos tu GPS para fijar el punto exacto.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -292,12 +254,12 @@ export function CommunityAlerts() {
               {loadingLocation ? (
                 <div className="flex items-center gap-2 text-primary font-medium">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Obteniendo GPS...</span>
+                  <span>Buscando satélites...</span>
                 </div>
               ) : userCoords ? (
                 <div className="flex items-center gap-2 text-green-600 font-medium">
                   <MapPin className="h-4 w-4" />
-                  <span>GPS Listo: {userCoords.lat.toFixed(4)}, {userCoords.lng.toFixed(4)}</span>
+                  <span>GPS Fijado Correctamente</span>
                 </div>
               ) : (
                 <Button variant="outline" size="sm" onClick={handleGetLocation}>

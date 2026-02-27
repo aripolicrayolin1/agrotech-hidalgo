@@ -12,11 +12,10 @@ import {
   Leaf, 
   Droplets, 
   Thermometer, 
-  ArrowRight,
   MoreVertical,
   Activity,
   Trash2,
-  X
+  Loader2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -34,24 +33,18 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
-
-interface Farm {
-  id: string;
-  name: string;
-  location: string;
-  crop: string;
-  area: string;
-  status: string;
-  lastUpdate: string;
-  humidity: string;
-  temp: string;
-}
+import { useFirestore, useUser, useCollection } from "@/firebase";
+import { collection, doc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
 
 export default function FarmsPage() {
   const { toast } = useToast();
-  const [farms, setFarms] = useState<Farm[]>([]);
+  const db = useFirestore();
+  const { user } = useUser();
+  
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newFarm, setNewFarm] = useState({
     name: "",
@@ -60,36 +53,15 @@ export default function FarmsPage() {
     area: ""
   });
 
-  // Cargar fincas al iniciar
-  useEffect(() => {
-    const savedFarms = localStorage.getItem("agrotech_farms");
-    if (savedFarms) {
-      setFarms(JSON.parse(savedFarms));
-    } else {
-      const initialFarms = [
-        {
-          id: "1",
-          name: "Rancho El Jilguero",
-          location: "Actopan, Hidalgo",
-          crop: "Maíz",
-          area: "5 Hectáreas",
-          status: "Saludable",
-          lastUpdate: "Ahora",
-          humidity: "68%",
-          temp: "24°C"
-        }
-      ];
-      setFarms(initialFarms);
-      localStorage.setItem("agrotech_farms", JSON.stringify(initialFarms));
-    }
-  }, []);
+  const farmsCollectionRef = useMemo(() => {
+    if (!db || !user) return null;
+    return collection(db, "users", user.uid, "farms");
+  }, [db, user]);
 
-  const saveFarms = (updatedFarms: Farm[]) => {
-    setFarms(updatedFarms);
-    localStorage.setItem("agrotech_farms", JSON.stringify(updatedFarms));
-  };
+  const { data: farms, loading: farmsLoading } = useCollection(farmsCollectionRef);
 
   const handleAddFarm = () => {
+    if (!db || !user || !farmsCollectionRef) return;
     if (!newFarm.name || !newFarm.location || !newFarm.crop) {
       toast({
         title: "Error",
@@ -99,33 +71,56 @@ export default function FarmsPage() {
       return;
     }
 
-    const farmToAdd: Farm = {
-      id: Math.random().toString(36).substr(2, 9),
+    const farmId = Math.random().toString(36).substr(2, 9);
+    const farmDocRef = doc(farmsCollectionRef, farmId);
+    
+    const farmData = {
       name: newFarm.name,
       location: newFarm.location,
       crop: newFarm.crop,
       area: newFarm.area || "No especificada",
+      userId: user.uid,
       status: "Saludable",
       lastUpdate: "Recién añadido",
       humidity: "0%",
-      temp: "0°C"
+      temp: "0°C",
+      createdAt: serverTimestamp()
     };
 
-    saveFarms([...farms, farmToAdd]);
+    setDoc(farmDocRef, farmData)
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: farmDocRef.path,
+          operation: 'write',
+          requestResourceData: farmData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
+
     setIsAddDialogOpen(false);
     setNewFarm({ name: "", location: "", crop: "", area: "" });
     toast({
       title: "Finca Registrada",
-      description: `${newFarm.name} ha sido añadida correctamente.`
+      description: `${newFarm.name} ha sido añadida a la nube.`
     });
   };
 
   const handleDeleteFarm = (id: string) => {
-    const updatedFarms = farms.filter(f => f.id !== id);
-    saveFarms(updatedFarms);
+    if (!farmsCollectionRef) return;
+    const farmDocRef = doc(farmsCollectionRef, id);
+    
+    deleteDoc(farmDocRef)
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: farmDocRef.path,
+          operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
+
     toast({
       title: "Finca Eliminada",
-      description: "El registro ha sido borrado.",
+      description: "El registro ha sido borrado de la nube.",
     });
   };
 
@@ -133,12 +128,12 @@ export default function FarmsPage() {
     <SidebarProvider>
       <SidebarNav />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center justify-between px-6 transition-[width,height] ease-linear border-b bg-white/80 backdrop-blur-md sticky top-0 z-10">
+        <header className="flex h-16 shrink-0 items-center justify-between px-6 border-b bg-white/80 backdrop-blur-md sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <SidebarTrigger />
             <h1 className="text-xl font-bold">Mis Fincas</h1>
           </div>
-          <Button size="sm" onClick={() => setIsAddDialogOpen(true)}>
+          <Button size="sm" onClick={() => setIsAddDialogOpen(true)} disabled={!user}>
             <Plus className="mr-2 h-4 w-4" /> Añadir Finca
           </Button>
         </header>
@@ -147,92 +142,101 @@ export default function FarmsPage() {
           <div className="max-w-6xl mx-auto space-y-8">
             <div className="space-y-1">
               <h2 className="text-3xl font-bold tracking-tight">Gestión de Terrenos</h2>
-              <p className="text-muted-foreground">Administra tus cultivos en tiempo real.</p>
+              <p className="text-muted-foreground">Administra tus cultivos con sincronización en la nube.</p>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {farms.map((farm) => (
-                <Card key={farm.id} className="border-none shadow-lg hover:shadow-xl transition-all relative overflow-hidden group">
-                  <div className={`absolute top-0 left-0 w-1 h-full ${
-                    farm.status === 'Saludable' ? 'bg-primary' : 'bg-destructive'
-                  }`} />
-                  
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-xl group-hover:text-primary transition-colors">{farm.name}</CardTitle>
-                        <CardDescription className="flex items-center gap-1 mt-1">
-                          <MapPin className="h-3 w-3" /> {farm.location}
-                        </CardDescription>
+            {farmsLoading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <p className="text-muted-foreground font-medium">Sincronizando con Firebase...</p>
+              </div>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {farms.map((farm: any) => (
+                  <Card key={farm.id} className="border-none shadow-lg hover:shadow-xl transition-all relative overflow-hidden group">
+                    <div className={`absolute top-0 left-0 w-1 h-full ${
+                      farm.status === 'Saludable' ? 'bg-primary' : 'bg-destructive'
+                    }`} />
+                    
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-xl group-hover:text-primary transition-colors">{farm.name}</CardTitle>
+                          <CardDescription className="flex items-center gap-1 mt-1">
+                            <MapPin className="h-3 w-3" /> {farm.location}
+                          </CardDescription>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteFarm(farm.id)}>
+                              <Trash2 className="mr-2 h-4 w-4" /> Eliminar finca
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteFarm(farm.id)}>
-                            <Trash2 className="mr-2 h-4 w-4" /> Eliminar finca
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardHeader>
-                  
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="gap-1">
-                          <Leaf className="h-3 w-3" /> {farm.crop}
+                    </CardHeader>
+                    
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="gap-1">
+                            <Leaf className="h-3 w-3" /> {farm.crop}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">{farm.area}</span>
+                        </div>
+                        <Badge variant={farm.status === 'Saludable' ? 'default' : 'destructive'} className="text-[10px] uppercase">
+                          {farm.status}
                         </Badge>
-                        <span className="text-xs text-muted-foreground">{farm.area}</span>
                       </div>
-                      <Badge variant={farm.status === 'Saludable' ? 'default' : 'destructive'} className="text-[10px] uppercase">
-                        {farm.status}
-                      </Badge>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-4 pt-2">
-                      <div className="bg-muted/30 p-3 rounded-lg flex items-center gap-3">
-                        <Droplets className="h-5 w-5 text-blue-500" />
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase font-bold">Humedad</p>
-                          <p className="text-sm font-bold">{farm.humidity}</p>
+                      <div className="grid grid-cols-2 gap-4 pt-2">
+                        <div className="bg-muted/30 p-3 rounded-lg flex items-center gap-3">
+                          <Droplets className="h-5 w-5 text-blue-500" />
+                          <div>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Humedad</p>
+                            <p className="text-sm font-bold">{farm.humidity}</p>
+                          </div>
+                        </div>
+                        <div className="bg-muted/30 p-3 rounded-lg flex items-center gap-3">
+                          <Thermometer className="h-5 w-5 text-orange-500" />
+                          <div>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Temp.</p>
+                            <p className="text-sm font-bold">{farm.temp}</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="bg-muted/30 p-3 rounded-lg flex items-center gap-3">
-                        <Thermometer className="h-5 w-5 text-orange-500" />
-                        <div>
-                          <p className="text-[10px] text-muted-foreground uppercase font-bold">Temp.</p>
-                          <p className="text-sm font-bold">{farm.temp}</p>
-                        </div>
+                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <Activity className="h-3 w-3 text-primary" />
+                        Actualización: {farm.lastUpdate}
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <Activity className="h-3 w-3 text-primary" />
-                      Actualización: {farm.lastUpdate}
-                    </div>
-                  </CardContent>
+                    </CardContent>
 
-                  <CardFooter className="pt-0">
-                    <Link href="/monitoring" className="w-full">
-                      <Button variant="outline" className="w-full">Ver Monitoreo</Button>
-                    </Link>
-                  </CardFooter>
-                </Card>
-              ))}
+                    <CardFooter className="pt-0">
+                      <Link href="/monitoring" className="w-full">
+                        <Button variant="outline" className="w-full">Ver Monitoreo</Button>
+                      </Link>
+                    </CardFooter>
+                  </Card>
+                ))}
 
-              <button 
-                className="border-2 border-dashed border-muted-foreground/20 rounded-lg p-12 flex flex-col items-center justify-center gap-4 hover:bg-muted/10 transition-colors group"
-                onClick={() => setIsAddDialogOpen(true)}
-              >
-                <Plus className="h-8 w-8 text-primary group-hover:scale-110 transition-transform" />
-                <div className="text-center">
-                  <p className="font-bold">Nueva Finca</p>
-                </div>
-              </button>
-            </div>
+                <button 
+                  className="border-2 border-dashed border-muted-foreground/20 rounded-lg p-12 flex flex-col items-center justify-center gap-4 hover:bg-muted/10 transition-colors group"
+                  onClick={() => setIsAddDialogOpen(true)}
+                  disabled={!user}
+                >
+                  <Plus className="h-8 w-8 text-primary group-hover:scale-110 transition-transform" />
+                  <div className="text-center">
+                    <p className="font-bold">Nueva Finca</p>
+                    {!user && <p className="text-[10px] text-destructive">Inicia sesión para añadir</p>}
+                  </div>
+                </button>
+              </div>
+            )}
           </div>
         </main>
 
@@ -240,7 +244,7 @@ export default function FarmsPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Añadir Nueva Finca</DialogTitle>
-              <DialogDescription>Registra los datos básicos de tu terreno.</DialogDescription>
+              <DialogDescription>Registra los datos básicos de tu terreno en la nube.</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
