@@ -1,3 +1,4 @@
+
 "use client";
 
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
@@ -56,7 +57,6 @@ export default function DiagnosisPage() {
   const startDiagnosis = async () => {
     if (!selectedImage) return;
     setLoading(true);
-    // Capturamos la hora local del dispositivo para que sea real (Hidalgo)
     const now = new Date().toLocaleTimeString();
     setLastAttemptTime(now);
 
