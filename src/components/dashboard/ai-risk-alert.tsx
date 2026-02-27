@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -24,11 +25,17 @@ export function AIRiskAlert({ sensorValues }: AIRiskAlertProps) {
 
   useEffect(() => {
     async function getPrediction() {
-      // Normalización local para el key de comparación
-      const normalizedHumidity = Math.max(0, Math.min(100, sensorValues.humidity_soil));
+      // Normalización para la IA
+      const normalizedHumidity = sensorValues.humidity_soil > 100 
+        ? Math.max(0, Math.min(100, (sensorValues.humidity_soil / 4095) * 100))
+        : Math.max(0, Math.min(100, sensorValues.humidity_soil));
+      
       const normalizedTemp = Math.max(-10, Math.min(60, sensorValues.temp));
       
-      const currentValuesKey = `${Math.round(normalizedHumidity)}-${Math.round(normalizedTemp)}`;
+      // Solo actualizamos si el cambio es significativo (ej: cambia más de 2 unidades)
+      // Esto ahorra muchísima cuota de IA en Wokwi
+      const currentValuesKey = `${Math.round(normalizedHumidity / 2)}-${Math.round(normalizedTemp / 2)}`;
+      
       if (lastAnalyzedValues.current === currentValuesKey && prediction) return;
 
       setUpdating(true);
@@ -50,8 +57,8 @@ export function AIRiskAlert({ sensorValues }: AIRiskAlertProps) {
       }
     }
 
-    // Debounce de 2 segundos para no agotar la cuota de IA
-    const timeout = setTimeout(getPrediction, 2000);
+    // Debounce de 5 segundos para proteger la cuota de la API gratuita
+    const timeout = setTimeout(getPrediction, 5000);
     return () => clearTimeout(timeout);
   }, [sensorValues, prediction]);
 
@@ -75,24 +82,25 @@ export function AIRiskAlert({ sensorValues }: AIRiskAlertProps) {
   return (
     <Card className={`border-none shadow-md transition-all duration-500 relative ${isRisk ? 'bg-accent/10 ring-1 ring-accent' : 'bg-primary/5 ring-1 ring-primary/20'}`}>
       {updating && (
-        <div className="absolute top-2 right-2 opacity-50">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        <div className="absolute top-2 right-2 opacity-50 flex items-center gap-2 text-[10px] font-medium text-primary">
+          <span className="animate-pulse">Sincronizando IA...</span>
+          <Loader2 className="h-3 w-3 animate-spin" />
         </div>
       )}
       <CardHeader className="flex flex-row items-start justify-between pb-2">
         <div className="space-y-1">
           <CardTitle className="text-lg flex items-center gap-2">
             {isFallback ? (
-              <WifiOff className="text-muted-foreground h-5 w-5" />
+              <WifiOff className="text-orange-500 h-5 w-5" />
             ) : isRisk ? (
               <AlertCircle className="text-destructive h-5 w-5" />
             ) : (
               <ShieldCheck className="text-primary h-5 w-5" />
             )}
-            {isFallback ? 'Análisis de Emergencia' : 'IA Analizando Datos de Wokwi'}
+            {isFallback ? 'Análisis de Respaldo Local' : 'Análisis Predictivo IA'}
           </CardTitle>
           <CardDescription>
-            Diagnóstico basado en sensores actuales
+            {isFallback ? 'Modo de emergencia por saturación de cuota' : 'Gemini analizando datos de Wokwi'}
           </CardDescription>
         </div>
         {prediction && (
@@ -105,7 +113,7 @@ export function AIRiskAlert({ sensorValues }: AIRiskAlertProps) {
         <div className="bg-white/60 p-4 rounded-lg">
           <h4 className="font-semibold text-sm mb-1 flex items-center gap-2">
             <Zap className="h-4 w-4 text-accent-foreground" />
-            Resumen en Tiempo Real
+            Diagnóstico
           </h4>
           <p className="text-sm text-foreground/80 leading-relaxed">
             {prediction?.alertMessage}
@@ -114,7 +122,7 @@ export function AIRiskAlert({ sensorValues }: AIRiskAlertProps) {
         
         {isRisk && (
           <div className="bg-destructive/10 p-4 rounded-lg border border-destructive/20">
-            <h4 className="font-semibold text-sm mb-1 text-destructive">Problema Detectado</h4>
+            <h4 className="font-semibold text-sm mb-1 text-destructive">Alerta de Plaga/Hongo</h4>
             <p className="text-sm font-medium">{prediction?.potentialProblem}</p>
           </div>
         )}
@@ -122,7 +130,7 @@ export function AIRiskAlert({ sensorValues }: AIRiskAlertProps) {
         <div className="bg-primary/10 p-4 rounded-lg border border-primary/20">
           <h4 className="font-semibold text-sm mb-1 text-primary flex items-center gap-2">
             <Info className="h-4 w-4" />
-            Recomendación para tu Finca
+            Acción Preventiva
           </h4>
           <p className="text-sm italic">{prediction?.recommendation}</p>
         </div>

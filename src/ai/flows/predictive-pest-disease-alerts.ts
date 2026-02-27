@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A predictive AI agent for identifying potential pest or fungal disease risks based on sensor data.
@@ -72,27 +73,28 @@ const predictiveAlertFlow = ai.defineFlow(
     } catch (e: any) {
       console.warn("AI Quota exhausted or error occurred. Using fallback logic.");
       
-      // Lógica de respaldo (Heurística básica)
+      // Lógica de respaldo (Heurística básica para cuando Gemini está saturado)
       const highHumidity = sanitizedInput.soilHumidity > 75;
+      const criticalHumidity = sanitizedInput.soilHumidity > 90;
       const highTemp = sanitizedInput.temperature > 28;
       
-      if (highHumidity && highTemp) {
+      if (highHumidity || highTemp) {
         return {
           alertNeeded: true,
-          alertMessage: "El servicio de IA está saturado, pero los sensores detectan condiciones críticas: Humedad y temperatura elevadas.",
-          predictedRisk: "High",
-          potentialProblem: "Riesgo alto de Hongos/Tizón (Modo Respaldo)",
-          recommendation: "Asegura la ventilación y revisa el drenaje del suelo de inmediato.",
+          alertMessage: "El límite de peticiones gratuitas de Google se ha alcanzado. Usando lógica de emergencia: Se detectan parámetros fuera de rango normal.",
+          predictedRisk: criticalHumidity ? "High" : "Medium",
+          potentialProblem: highHumidity ? "Riesgo de proliferación de Hongos" : "Estrés térmico por calor",
+          recommendation: "Revisa visualmente el cultivo y asegura una ventilación adecuada mientras se restablece el servicio de IA.",
           isFallback: true
         };
       }
 
       return {
         alertNeeded: false,
-        alertMessage: "Servicio de IA en mantenimiento. Basado en parámetros de sensores, el cultivo parece estar en rangos normales.",
+        alertMessage: "Servicio de IA en espera (Límite de cuota). Basado en parámetros de sensores, el cultivo parece estar en rangos estables.",
         predictedRisk: "None",
         potentialProblem: "Ninguno detectado",
-        recommendation: "Realiza una inspección visual manual rutinaria.",
+        recommendation: "Continúa con el monitoreo visual preventivo.",
         isFallback: true
       };
     }
