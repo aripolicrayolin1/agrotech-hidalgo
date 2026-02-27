@@ -204,7 +204,7 @@ export default function Home() {
               <Card className="border-none shadow-md">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" /> Historial de Salud
+                    <TrendingUp className="h-5 w-5 text-primary" /> {t('health_history')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="h-[250px] w-full">
@@ -235,7 +235,7 @@ export default function Home() {
                   <Info className="h-24 w-24" />
                 </div>
                 <CardHeader>
-                  <CardTitle className="text-lg">Dato del Sensor</CardTitle>
+                  <CardTitle className="text-lg">{t('sensor_data')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm opacity-90 leading-relaxed">

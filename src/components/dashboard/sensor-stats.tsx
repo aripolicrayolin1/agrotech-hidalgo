@@ -45,7 +45,7 @@ export function SensorStats({ sensorValues, isOnline, lastUpdate }: SensorStatsP
       isAnalog: sensorValues.humidity_soil > 100
     },
     { 
-      label: "Hum. Aire", 
+      label: t('humidity_air'), 
       displayValue: sensorValues.humidity_air,
       unit: "%", 
       icon: Wind, 
@@ -61,7 +61,7 @@ export function SensorStats({ sensorValues, isOnline, lastUpdate }: SensorStatsP
       max: 50 
     },
     { 
-      label: "Punto Rocío", 
+      label: t('dew_point'), 
       displayValue: sensorValues.dew_point,
       unit: "°C", 
       icon: Snowflake, 
@@ -69,7 +69,7 @@ export function SensorStats({ sensorValues, isOnline, lastUpdate }: SensorStatsP
       max: 40 
     },
     { 
-      label: "Evapotransp. (ET)", 
+      label: t('evapotranspiration'), 
       displayValue: sensorValues.et,
       unit: " mm", 
       icon: CloudRain, 
@@ -86,24 +86,24 @@ export function SensorStats({ sensorValues, isOnline, lastUpdate }: SensorStatsP
             {isOnline ? (
               <>
                 <Wifi className="h-3.5 w-3.5 text-white animate-pulse" />
-                Estación en Línea
+                {t('online')}
               </>
             ) : (
               <>
                 <WifiOff className="h-3.5 w-3.5" />
-                Desconectado
+                {t('offline')}
               </>
             )}
           </Badge>
           <Badge variant="outline" className="gap-1.5 py-1 px-3 bg-white/50 border-primary/20">
             <Zap className={`h-3.5 w-3.5 ${isOnline ? 'text-primary' : 'text-muted-foreground'}`} />
-            Estado: {sensorValues.status_text}
+            {t('status')}: {sensorValues.status_text}
           </Badge>
         </div>
         {mounted && (
           <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
             <RefreshCw className={`h-3 w-3 ${isOnline ? 'animate-spin-slow' : ''}`} />
-            Sincronizado: {lastUpdate ? lastUpdate.toLocaleTimeString() : "--:--:--"}
+            {t('sync')}: {lastUpdate ? lastUpdate.toLocaleTimeString() : "--:--:--"}
           </div>
         )}
       </div>
