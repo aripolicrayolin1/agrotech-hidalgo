@@ -17,9 +17,14 @@ import {
   Clock,
   ShieldCheck,
   Zap,
-  FileText
+  FileText,
+  Mic,
+  MicOff,
+  MapPin,
+  ExternalLink,
+  ShoppingBag
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { diagnoseCropDisease, type CropDiagnosisOutput } from "@/ai/flows/crop-disease-photo-diagnosis-flow";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +37,58 @@ export default function DiagnosisPage() {
   const [diagnosis, setDiagnosis] = useState<CropDiagnosisOutput | null>(null);
   const [loading, setLoading] = useState(false);
   const [description, setDescription] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    // Inicializar reconocimiento de voz
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'es-MX';
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setDescription((prev) => prev + " " + transcript);
+        setIsListening(false);
+        toast({
+          title: "Voz capturada",
+          description: "Hemos añadido lo que dijiste al formulario.",
+        });
+      };
+
+      recognitionRef.current.onerror = () => {
+        setIsListening(false);
+        toast({
+          title: "Error de Voz",
+          description: "No pudimos reconocer el audio. Intenta de nuevo.",
+          variant: "destructive"
+        });
+      };
+
+      recognitionRef.current.onend = () => setIsListening(false);
+    }
+  }, [toast]);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+      toast({
+        title: "No compatible",
+        description: "Tu navegador no soporta reconocimiento de voz.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current.stop();
+    } else {
+      setIsListening(true);
+      recognitionRef.current.start();
+    }
+  };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -49,7 +106,7 @@ export default function DiagnosisPage() {
     if (!selectedImage && !description.trim()) {
       toast({
         title: "Faltan datos",
-        description: "Por favor sube una foto o escribe una descripción de lo que ves.",
+        description: "Sube una foto o dicta los síntomas.",
         variant: "destructive"
       });
       return;
@@ -62,24 +119,8 @@ export default function DiagnosisPage() {
         description: description
       });
       setDiagnosis(result);
-      
-      if (result.diagnosis.isFallback) {
-        toast({
-          title: "Diagnóstico Local Activado",
-          description: "Usando motor de respaldo basado en tu descripción.",
-        });
-      } else {
-        toast({
-          title: "Análisis IA Completado",
-          description: "Diagnóstico generado con éxito.",
-        });
-      }
     } catch (error) {
-      toast({
-        title: "Error Crítico",
-        description: "No se pudo realizar el diagnóstico.",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "No se pudo realizar el diagnóstico.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -98,7 +139,7 @@ export default function DiagnosisPage() {
         <header className="flex h-16 shrink-0 items-center justify-between px-6 border-b bg-white/80 backdrop-blur-md sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <SidebarTrigger />
-            <h1 className="text-xl font-bold">Diagnóstico Inteligente</h1>
+            <h1 className="text-xl font-bold">Diagnóstico Digital</h1>
           </div>
         </header>
 
@@ -109,89 +150,73 @@ export default function DiagnosisPage() {
                 <CardHeader className="bg-primary/5">
                   <CardTitle className="text-2xl flex items-center gap-2">
                     <Camera className="h-6 w-6 text-primary" />
-                    Identificador de Problemas
+                    Identificador de Plagas
                   </CardTitle>
                   <CardDescription>
-                    Sube una foto **O** describe los síntomas para obtener una solución inmediata.
+                    Usa tu cámara o **dicta por voz** los síntomas para una respuesta rápida.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6 pt-6">
                   {!selectedImage ? (
-                    <div className="border-2 border-dashed border-primary/20 rounded-xl aspect-video flex flex-col items-center justify-center p-12 bg-muted/10 group hover:bg-primary/5 transition-all cursor-pointer relative overflow-hidden">
-                      <Input 
-                        type="file" 
-                        accept="image/*" 
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
-                        onChange={handleImageChange}
-                      />
-                      <div className="bg-primary/10 p-6 rounded-full mb-4 group-hover:scale-110 transition-transform">
+                    <div className="border-2 border-dashed border-primary/20 rounded-xl aspect-video flex flex-col items-center justify-center p-12 bg-muted/10 group hover:bg-primary/5 transition-all cursor-pointer relative">
+                      <Input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={handleImageChange} />
+                      <div className="bg-primary/10 p-6 rounded-full mb-4">
                         <Camera className="h-12 w-12 text-primary" />
                       </div>
-                      <p className="font-bold text-lg text-primary text-center">Toma una foto del cultivo (Opcional)</p>
-                      <p className="text-sm text-muted-foreground mt-2 text-center">Puedes saltar este paso y solo escribir abajo</p>
+                      <p className="font-bold text-lg text-primary">Sube una foto del daño</p>
                     </div>
                   ) : (
                     <div className="relative aspect-video rounded-xl overflow-hidden shadow-2xl bg-black group">
                        <Image src={selectedImage} alt="Preview" fill className="object-contain" />
-                       <Button variant="destructive" size="icon" className="absolute top-4 right-4 h-10 w-10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setSelectedImage(null)}>
+                       <Button variant="destructive" size="icon" className="absolute top-4 right-4 h-10 w-10 rounded-full" onClick={() => setSelectedImage(null)}>
                          <X className="h-5 w-5" />
                        </Button>
                     </div>
                   )}
 
                   <div className="space-y-3">
-                    <Label htmlFor="symptoms" className="text-base font-bold">¿Qué problemas observas?</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="symptoms" className="text-base font-bold">Describe o dicta el problema</Label>
+                      <Button 
+                        variant={isListening ? "destructive" : "outline"} 
+                        size="sm" 
+                        className={`gap-2 rounded-full px-4 ${isListening ? 'animate-pulse' : ''}`}
+                        onClick={toggleListening}
+                      >
+                        {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                        {isListening ? "Escuchando..." : "Dictar Síntomas"}
+                      </Button>
+                    </div>
                     <Input 
                       id="symptoms" 
-                      className="h-12 text-lg border-primary/20 focus:ring-primary"
-                      placeholder="Ej: hojas comidas por gusanos, manchas color café, polvo blanco..." 
+                      className="h-14 text-lg border-primary/20"
+                      placeholder="Ej: Colonias blancas algodonosas en las hojas..." 
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                     />
-                    <p className="text-[10px] text-muted-foreground italic">
-                      * El sistema local usará estas palabras clave si la IA está saturada.
-                    </p>
                   </div>
                 </CardContent>
                 <CardFooter className="bg-muted/5 border-t p-6">
-                  <Button 
-                    className="w-full h-14 text-xl font-black shadow-xl rounded-xl"
-                    disabled={(!selectedImage && !description.trim()) || loading}
-                    onClick={startDiagnosis}
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-6 w-6 animate-spin" />
-                        Analizando...
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="mr-2 h-6 w-6 fill-white" />
-                        OBTENER DIAGNÓSTICO
-                      </>
-                    )}
+                  <Button className="w-full h-14 text-xl font-black rounded-xl" disabled={loading} onClick={startDiagnosis}>
+                    {loading ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Zap className="mr-2 h-6 w-6 fill-white" />}
+                    OBTENER SOLUCIÓN
                   </Button>
                 </CardFooter>
               </Card>
             ) : (
               <div className="grid gap-6 lg:grid-cols-3">
-                <Card className="lg:col-span-1 border-none shadow-lg overflow-hidden h-fit">
-                   <div className="relative aspect-square bg-muted flex items-center justify-center">
+                <Card className="lg:col-span-1 border-none shadow-lg h-fit">
+                   <div className="relative aspect-square bg-muted flex items-center justify-center overflow-hidden rounded-t-lg">
                       {selectedImage ? (
                         <Image src={selectedImage} alt="Preview" fill className="object-cover" />
                       ) : (
-                        <div className="flex flex-col items-center text-muted-foreground p-6 text-center">
-                          <FileText className="h-12 w-12 mb-2 opacity-20" />
-                          <p className="text-xs font-bold">Diagnóstico por Texto</p>
-                        </div>
+                        <FileText className="h-16 w-16 opacity-10" />
                       )}
                       {diagnosis.diagnosis.isFallback && (
-                        <div className="absolute top-0 left-0 w-full p-2 bg-orange-600/90 text-white text-[10px] text-center font-bold uppercase tracking-tighter">
-                          MODO RESPALDO ACTIVO
-                        </div>
+                        <Badge className="absolute top-2 left-2 bg-orange-600">MODO RESPALDO</Badge>
                       )}
                    </div>
-                   <CardContent className="p-4 bg-muted/50">
+                   <CardContent className="p-4">
                      <Button variant="outline" className="w-full font-bold" onClick={reset}>
                        <RefreshCcw className="h-4 w-4 mr-2" /> Nueva Consulta
                      </Button>
@@ -200,50 +225,37 @@ export default function DiagnosisPage() {
 
                 <div className="lg:col-span-2 space-y-6">
                   <Card className="border-none shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <CardHeader className="flex flex-row items-start justify-between border-b pb-4">
-                      <div className="max-w-[70%]">
-                        <div className="flex items-center gap-2 mb-1">
-                          {diagnosis.diagnosis.isFallback ? (
-                            <ShieldCheck className="h-5 w-5 text-orange-500" />
-                          ) : (
-                            <CheckCircle2 className="h-5 w-5 text-primary" />
-                          )}
-                          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                            {diagnosis.diagnosis.isFallback ? "Respaldo Local" : "Inteligencia Artificial"}
-                          </span>
-                        </div>
-                        <CardTitle className="text-3xl font-black text-primary leading-tight">
-                          {diagnosis.diagnosis.identifiedProblem}
-                        </CardTitle>
+                    <CardHeader className="border-b">
+                      <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase mb-2">
+                        <ShieldCheck className="h-4 w-4" /> Diagnóstico de Precisión
                       </div>
-                      <Badge className="px-3 py-1 text-sm bg-accent text-accent-foreground">{diagnosis.diagnosis.confidence} Confianza</Badge>
+                      <CardTitle className="text-3xl font-black text-primary">
+                        {diagnosis.diagnosis.identifiedProblem}
+                      </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-8 pt-6">
                       <div className="grid grid-cols-2 gap-4">
                          <div className="p-4 rounded-xl bg-destructive/5 border border-destructive/20">
-                            <p className="text-[10px] font-bold uppercase text-destructive mb-1">Severidad</p>
+                            <p className="text-[10px] font-bold uppercase text-destructive">Severidad</p>
                             <p className="text-xl font-black">{diagnosis.diagnosis.severity}</p>
                          </div>
                          <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
-                            <p className="text-[10px] font-bold uppercase text-primary mb-1">Estado</p>
-                            <p className="text-xl font-black">{diagnosis.diagnosis.isProblemDetected ? "Alerta" : "Normal"}</p>
+                            <p className="text-[10px] font-bold uppercase text-primary">Confianza</p>
+                            <p className="text-xl font-black">{diagnosis.diagnosis.confidence}</p>
                          </div>
                       </div>
 
-                      <Tabs defaultValue="actions" className="w-full">
-                        <TabsList className="grid w-full grid-cols-3 h-12">
-                          <TabsTrigger value="actions" className="text-sm font-bold">Acciones</TabsTrigger>
-                          <TabsTrigger value="commercial" className="text-sm font-bold">Comercial</TabsTrigger>
-                          <TabsTrigger value="homemade" className="text-sm font-bold">Orgánico</TabsTrigger>
+                      <Tabs defaultValue="actions">
+                        <TabsList className="grid w-full grid-cols-3">
+                          <TabsTrigger value="actions" className="font-bold">Acciones</TabsTrigger>
+                          <TabsTrigger value="commercial" className="font-bold">Compra</TabsTrigger>
+                          <TabsTrigger value="homemade" className="font-bold">Bio</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="actions" className="mt-6 space-y-4">
-                          <h4 className="font-black flex items-center gap-2 text-lg text-primary">
-                            <Leaf className="h-5 w-5" /> Pasos Recomendados:
-                          </h4>
-                          <ul className="grid gap-3">
+                        <TabsContent value="actions" className="mt-6">
+                          <ul className="space-y-3">
                             {diagnosis.diagnosis.recommendedActions.map((action, idx) => (
-                              <li key={idx} className="flex items-start gap-3 text-base p-4 bg-white rounded-xl border shadow-sm group hover:border-primary transition-colors">
-                                <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                              <li key={idx} className="flex items-start gap-3 p-4 bg-white rounded-xl border shadow-sm">
+                                <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
                                 <span className="font-medium">{action}</span>
                               </li>
                             ))}
@@ -252,42 +264,38 @@ export default function DiagnosisPage() {
                         <TabsContent value="commercial" className="mt-6 space-y-4">
                           {diagnosis.diagnosis.commercialProducts.map((product, idx) => (
                             <div key={idx} className="p-5 bg-white rounded-2xl border-2 border-primary/10 shadow-sm">
-                              <h5 className="font-black text-xl text-primary mb-1">{product.name}</h5>
-                              <p className="text-base text-muted-foreground mb-3">{product.description}</p>
-                              <div className="inline-flex items-center px-3 py-1 bg-primary/10 text-primary rounded-full text-xs font-bold">
-                                Localizar en: {product.localStores}
+                              <div className="flex justify-between items-start mb-2">
+                                <h5 className="font-black text-xl text-primary">{product.name}</h5>
+                                <Badge variant="secondary">Localizado</Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground mb-4">{product.description}</p>
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                <Button className="flex-1 gap-2 bg-accent text-accent-foreground hover:bg-accent/80" asChild>
+                                  <a href={product.locationLink || "#"} target="_blank" rel="noopener noreferrer">
+                                    <MapPin className="h-4 w-4" /> Ver Tiendas Cercanas
+                                  </a>
+                                </Button>
+                                <Button variant="outline" className="flex-1 gap-2" asChild>
+                                  <a href={`https://listado.mercadolibre.com.mx/${product.name.replace(/\s/g, '+')}`} target="_blank" rel="noopener noreferrer">
+                                    <ShoppingBag className="h-4 w-4" /> Cotizar Online
+                                  </a>
+                                </Button>
                               </div>
                             </div>
                           ))}
                         </TabsContent>
                         <TabsContent value="homemade" className="mt-6 space-y-4">
                           {diagnosis.diagnosis.homeMadeRemedies.map((remedy, idx) => (
-                            <div key={idx} className="p-6 bg-green-50 rounded-2xl border-2 border-green-200 shadow-sm relative overflow-hidden">
-                              <div className="absolute top-0 right-0 p-4 opacity-10">
-                                <Leaf className="h-12 w-12 text-green-800" />
-                              </div>
+                            <div key={idx} className="p-6 bg-green-50 rounded-2xl border-2 border-green-200">
                               <h5 className="font-black text-xl text-green-800 mb-2">{remedy.name}</h5>
-                              <div className="space-y-3">
-                                <div>
-                                  <p className="text-[10px] font-bold text-green-700 uppercase mb-1">Ingredientes:</p>
-                                  <p className="text-sm font-medium">{remedy.ingredients.join(", ")}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[10px] font-bold text-green-700 uppercase mb-1">Instrucciones:</p>
-                                  <p className="text-sm italic text-foreground/80">{remedy.instructions}</p>
-                                </div>
-                              </div>
+                              <p className="text-xs font-bold text-green-700 uppercase">Ingredientes:</p>
+                              <p className="text-sm mb-3">{remedy.ingredients.join(", ")}</p>
+                              <p className="text-xs font-bold text-green-700 uppercase">Instrucciones:</p>
+                              <p className="text-sm italic">{remedy.instructions}</p>
                             </div>
                           ))}
                         </TabsContent>
                       </Tabs>
-
-                      {diagnosis.diagnosis.additionalNotes && (
-                        <div className="p-4 bg-muted rounded-xl text-xs text-muted-foreground flex gap-3 items-center">
-                          <Clock className="h-4 w-4 shrink-0" />
-                          {diagnosis.diagnosis.additionalNotes}
-                        </div>
-                      )}
                     </CardContent>
                   </Card>
                 </div>
