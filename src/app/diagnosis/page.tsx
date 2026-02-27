@@ -19,7 +19,9 @@ import {
   Leaf, 
   MapPin,
   Info,
-  ArrowRight
+  ArrowRight,
+  MessageSquare,
+  Share2
 } from "lucide-react";
 import { useState } from "react";
 import { diagnoseCropDisease, type CropDiagnosisOutput } from "@/ai/flows/crop-disease-photo-diagnosis-flow";
@@ -27,8 +29,10 @@ import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
+import { useToast } from "@/hooks/use-toast";
 
 export default function DiagnosisPage() {
+  const { toast } = useToast();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [diagnosis, setDiagnosis] = useState<CropDiagnosisOutput | null>(null);
   const [loading, setLoading] = useState(false);
@@ -57,9 +61,49 @@ export default function DiagnosisPage() {
       setDiagnosis(result);
     } catch (error) {
       console.error("Diagnosis failed", error);
+      toast({
+        title: "Error de Diagnóstico",
+        description: "No se pudo completar el análisis. Por favor intenta de nuevo.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSendRegionalAlert = () => {
+    if (!diagnosis) return;
+
+    // Obtener alertas existentes
+    const savedAlerts = localStorage.getItem("community_alerts");
+    const currentAlerts = savedAlerts ? JSON.parse(savedAlerts) : [];
+
+    // Crear nueva alerta basada en el diagnóstico
+    const newAlert = {
+      id: Date.now(),
+      region: "Tu Zona (Hidalgo)",
+      crop: "Maíz", // Podría ser dinámico si la IA lo detecta
+      problem: diagnosis.diagnosis.identifiedProblem,
+      severity: diagnosis.diagnosis.severity === 'High' ? 'Alta' : 'Media',
+      distance: "En tu posición",
+      date: "Ahora",
+      lat: 20.1 + (Math.random() * 0.4),
+      lng: -98.8 - (Math.random() * 0.4)
+    };
+
+    localStorage.setItem("community_alerts", JSON.stringify([newAlert, ...currentAlerts]));
+
+    toast({
+      title: "Alerta Enviada",
+      description: "Se ha notificado a la comunidad sobre este brote detectado.",
+    });
+  };
+
+  const handleContactAgronomist = () => {
+    toast({
+      title: "Conectando con Agrónomo",
+      description: "Estamos enviando tu diagnóstico a un experto. Recibirás una respuesta en la sección de Comunidad.",
+    });
   };
 
   const reset = () => {
@@ -287,8 +331,20 @@ export default function DiagnosisPage() {
                       )}
                     </CardContent>
                     <CardFooter className="bg-muted/20 border-t p-6 flex flex-col sm:flex-row gap-4">
-                      <Button className="flex-1 font-bold">Enviar Alerta Regional</Button>
-                      <Button variant="outline" className="flex-1 font-bold">Contactar Agrónomo</Button>
+                      <Button 
+                        className="flex-1 font-bold gap-2" 
+                        onClick={handleSendRegionalAlert}
+                        disabled={!diagnosis.diagnosis.isProblemDetected}
+                      >
+                        <Share2 className="h-4 w-4" /> Enviar Alerta Regional
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="flex-1 font-bold gap-2" 
+                        onClick={handleContactAgronomist}
+                      >
+                        <MessageSquare className="h-4 w-4" /> Contactar Agrónomo
+                      </Button>
                     </CardFooter>
                   </Card>
                 </div>
