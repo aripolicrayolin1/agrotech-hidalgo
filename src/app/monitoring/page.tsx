@@ -1,4 +1,3 @@
-
 "use client";
 
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
@@ -31,10 +30,8 @@ import {
   CloudRain,
   Snowflake,
   FileText,
-  Printer,
-  FileDown,
-  Leaf,
-  FileEdit
+  FileEdit,
+  Leaf
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp, getApps } from "firebase/app";
@@ -286,18 +283,8 @@ export default function MonitoringPage() {
     });
   };
 
-  const downloadPdf = () => {
-    toast({
-      title: "Generando PDF",
-      description: "Por favor, selecciona 'Guardar como PDF' en el destino de la impresora.",
-    });
-    setTimeout(() => {
-      window.print();
-    }, 500);
-  };
-
   const renderCharts = (data: any[], isLive = false) => (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 printable-content">
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       <ChartCard title="Temperatura" description={isLive ? "En vivo" : "Tendencia"} data={data} dataKey="temp" color="var(--color-temp)" unit="°C" type="area" />
       <ChartCard title="Hum. Suelo" description={isLive ? "En vivo" : "Tendencia"} data={data} dataKey="humiditySoil" color="var(--color-humiditySoil)" unit="%" type="line" />
       <ChartCard title="Hum. Aire" description={isLive ? "En vivo" : "Tendencia"} data={data} dataKey="humidityAir" color="var(--color-humidityAir)" unit="%" type="line" />
@@ -308,9 +295,9 @@ export default function MonitoringPage() {
 
   return (
     <SidebarProvider>
-      <SidebarNav className="no-print" />
+      <SidebarNav />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center justify-between px-6 border-b bg-white/80 backdrop-blur-md sticky top-0 z-10 no-print">
+        <header className="flex h-16 shrink-0 items-center justify-between px-6 border-b bg-white/80 backdrop-blur-md sticky top-0 z-10">
           <div className="flex items-center gap-2">
             <SidebarTrigger />
             <h1 className="text-xl font-bold">Analítica de Sensores</h1>
@@ -319,21 +306,15 @@ export default function MonitoringPage() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2 shadow-sm font-bold border-primary/20 text-primary">
-                  <Download className="h-4 w-4" /> Exportar Reporte
+                  <Download className="h-4 w-4" /> Descargar Reporte
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem onClick={downloadCsv} className="gap-2 cursor-pointer font-medium">
-                  <FileText className="h-4 w-4 text-green-600" /> Exportar CSV (Excel)
+                  <FileText className="h-4 w-4 text-green-600" /> Descargar CSV (Excel)
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={downloadWord} className="gap-2 cursor-pointer font-medium">
                   <FileEdit className="h-4 w-4 text-blue-600" /> Descargar Word (.doc)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={downloadPdf} className="gap-2 cursor-pointer font-medium">
-                  <FileDown className="h-4 w-4 text-red-600" /> Generar Reporte PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={downloadPdf} className="gap-2 cursor-pointer font-medium">
-                  <Printer className="h-4 w-4 text-slate-600" /> Imprimir Ahora
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -344,34 +325,9 @@ export default function MonitoringPage() {
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-8 space-y-8 print:p-0 print:m-0">
-          <div className="only-print mb-8 border-b-4 border-primary pb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="bg-primary rounded-2xl p-3">
-                  <Leaf className="h-12 w-12 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-5xl font-black tracking-tighter text-primary">AgroTech</h1>
-                  <p className="text-md font-bold text-muted-foreground uppercase tracking-[0.2em]">Hidalgo, México</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <h2 className="text-2xl font-bold text-foreground">Reporte de Monitoreo Agrícola</h2>
-                {formattedDateTime && (
-                  <p className="text-sm text-muted-foreground mt-1">Generado el: <span className="font-bold text-foreground">{formattedDateTime.date} a las {formattedDateTime.time}</span></p>
-                )}
-                <div className="mt-3">
-                   <Badge className="uppercase px-4 py-1 text-sm bg-primary/10 text-primary border-primary/20">
-                     {activeTab === 'live' ? 'Monitoreo en Tiempo Real' : activeTab === 'today' ? 'Resumen Diario' : 'Histórico Semanal'}
-                   </Badge>
-                </div>
-              </div>
-            </div>
-          </div>
-
+        <main className="flex-1 p-4 md:p-8 space-y-8">
           <Tabs value={activeTab} className="w-full" onValueChange={setActiveTab}>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 no-print">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <div className="space-y-1">
                 <h2 className="text-2xl font-bold">Historial de Cultivo</h2>
                 <p className="text-muted-foreground text-sm">Monitoreo de 5 parámetros en tiempo real.</p>
@@ -390,7 +346,7 @@ export default function MonitoringPage() {
             <TabsContent value="week" className="space-y-6">{renderCharts(weeklyData)}</TabsContent>
           </Tabs>
 
-          <Card className="border-none shadow-lg no-print">
+          <Card className="border-none shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-primary" />
@@ -428,13 +384,13 @@ function ChartCard({ title, description, data, dataKey, color, unit, type }: any
   const iconColor = dataKey === 'temp' ? 'text-orange-500' : dataKey.includes('Soil') ? 'text-blue-600' : dataKey.includes('Air') ? 'text-teal-500' : dataKey === 'et' ? 'text-purple-500' : 'text-cyan-500';
 
   return (
-    <Card className="border-none shadow-lg overflow-hidden group print:shadow-none print:border print:mb-4">
+    <Card className="border-none shadow-lg overflow-hidden group">
       <CardHeader className="pb-0 flex flex-row items-center justify-between">
         <div>
           <CardTitle className="text-md group-hover:text-primary transition-colors">{title}</CardTitle>
           <CardDescription className="text-[10px]">{description}</CardDescription>
         </div>
-        <Icon className={`h-5 w-5 ${iconColor} no-print`} />
+        <Icon className={`h-5 w-5 ${iconColor}`} />
       </CardHeader>
       <CardContent>
         <div className="h-[200px] w-full mt-4">
