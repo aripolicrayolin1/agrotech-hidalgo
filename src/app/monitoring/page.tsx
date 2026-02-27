@@ -28,7 +28,9 @@ import {
   Download,
   Clock,
   CalendarDays,
-  Wind
+  Wind,
+  CloudRain,
+  Snowflake
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { initializeApp, getApps } from "firebase/app";
@@ -43,26 +45,31 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 const db = getDatabase(app);
 
 const chartConfig = {
-  temp: {
-    label: "Temperatura (°C)",
-    color: "hsl(var(--chart-4))",
-  },
-  humidity: {
-    label: "Humedad Suelo (%)",
-    color: "hsl(var(--chart-1))",
-  },
+  temp: { label: "Temperatura (°C)", color: "hsl(var(--chart-4))" },
+  humiditySoil: { label: "Humedad Suelo (%)", color: "hsl(var(--chart-1))" },
+  humidityAir: { label: "Humedad Aire (%)", color: "hsl(var(--chart-3))" },
+  et: { label: "ET (mm)", color: "hsl(var(--chart-5))" },
+  dewPoint: { label: "Punto Rocío (°C)", color: "hsl(var(--chart-2))" },
 };
 
 interface SensorPoint {
   time: string;
   temp: number;
-  humidity: number;
+  humiditySoil: number;
+  humidityAir: number;
+  et: number;
+  dewPoint: number;
 }
 
 export default function MonitoringPage() {
   const [history, setHistory] = useState<SensorPoint[]>([]);
-  const [currentTemp, setCurrentTemp] = useState(20);
-  const [currentHumidity, setCurrentHumidity] = useState(50);
+  const [currentValues, setCurrentValues] = useState<Omit<SensorPoint, 'time'>>({
+    temp: 20,
+    humiditySoil: 50,
+    humidityAir: 40,
+    et: 2.5,
+    dewPoint: 10
+  });
   const [isOnline, setIsOnline] = useState(false);
   const [events, setEvents] = useState<{time: string, event: string, status: string}[]>([]);
   const lastTimeRef = useRef<string>("");
@@ -78,65 +85,89 @@ export default function MonitoringPage() {
         if (timeStr === lastTimeRef.current) return;
         lastTimeRef.current = timeStr;
 
-        // Mapeo EXACTO según lo reportado por el usuario
-        const rawTemp = data.temperatura ?? 0;
-        const rawHumiditySoil = data.humedad_suelo ?? 0;
+        const rawTemp = Number(data.temperatura ?? 0);
+        const rawSoil = Number(data.humedad_suelo ?? 0);
+        const rawAir = Number(data.humedad_aire ?? 0);
+        const rawEt = Number(data.et ?? 0);
+        const rawDew = Number(data.punto_rocio ?? 0);
 
-        const normTemp = Number(rawTemp);
-        // Normalización para gráfica: si es > 100 asumimos 4095 como 100%
-        const normHumidity = rawHumiditySoil > 100 
-          ? Math.max(0, Math.min(100, (Number(rawHumiditySoil) / 4095) * 100))
-          : Math.max(0, Math.min(100, Number(rawHumiditySoil)));
-
-        setCurrentTemp(normTemp);
-        setCurrentHumidity(normHumidity);
+        const normSoil = rawSoil > 100 ? (rawSoil / 4095) * 100 : rawSoil;
 
         const newPoint = {
           time: timeStr,
-          temp: normTemp,
-          humidity: normHumidity
+          temp: rawTemp,
+          humiditySoil: normSoil,
+          humidityAir: rawAir,
+          et: rawEt,
+          dewPoint: rawDew
         };
 
-        setHistory(prev => {
-          const updated = [...prev, newPoint];
-          return updated.slice(-20);
+        setCurrentValues({
+          temp: rawTemp,
+          humiditySoil: normSoil,
+          humidityAir: rawAir,
+          et: rawEt,
+          dewPoint: rawDew
         });
 
+        setHistory(prev => [...prev, newPoint].slice(-15));
         setIsOnline(true);
 
-        if (normTemp > 35) {
+        if (rawTemp > 35) {
           setEvents(prev => [{ 
             time: timeStr, 
-            event: `Alerta: Calor extremo detectado (${normTemp.toFixed(1)}°C)`, 
+            event: `Alerta: Calor extremo (${rawTemp.toFixed(1)}°C)`, 
             status: "Crítico" 
           }, ...prev].slice(0, 5));
         }
       }
-    }, (error) => {
-      console.error("Firebase Monitoreo Error:", error);
-      setIsOnline(false);
-    });
+    }, () => setIsOnline(false));
 
     return () => unsubscribe();
   }, []);
 
+  // Generar etiquetas de horas REALES para hoy (ej: de hace 12 horas hasta ahora)
   const hourlyData = useMemo(() => {
-    const hours = ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"];
-    return hours.map((h, i) => ({
-      time: h,
-      temp: currentTemp + (Math.sin(i) * 5),
-      humidity: Math.max(0, Math.min(100, currentHumidity + (Math.cos(i) * 10)))
-    }));
-  }, [currentTemp, currentHumidity]);
+    const data = [];
+    const currentHour = new Date().getHours();
+    
+    for (let i = 8; i >= 0; i--) {
+      const h = (currentHour - i + 24) % 24;
+      const label = `${h.toString().padStart(2, '0')}:00`;
+      data.push({
+        time: label,
+        temp: currentValues.temp + (Math.sin(i) * 3),
+        humiditySoil: Math.max(0, Math.min(100, currentValues.humiditySoil + (Math.cos(i) * 5))),
+        humidityAir: Math.max(0, Math.min(100, currentValues.humidityAir + (Math.sin(i) * 4))),
+        et: Math.max(0, currentValues.et + (Math.cos(i) * 0.5)),
+        dewPoint: currentValues.dewPoint + (Math.sin(i) * 2)
+      });
+    }
+    return data;
+  }, [currentValues]);
 
   const weeklyData = useMemo(() => {
     const days = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sab", "Dom"];
+    const todayIndex = (new Date().getDay() + 6) % 7;
     return days.map((d, i) => ({
       time: d,
-      temp: currentTemp + (Math.random() * 4 - 2),
-      humidity: Math.max(0, Math.min(100, currentHumidity + (Math.random() * 8 - 4)))
+      temp: i <= todayIndex ? currentValues.temp + (Math.random() * 4 - 2) : null,
+      humiditySoil: i <= todayIndex ? Math.max(0, Math.min(100, currentValues.humiditySoil + (Math.random() * 10 - 5))) : null,
+      humidityAir: i <= todayIndex ? Math.max(0, Math.min(100, currentValues.humidityAir + (Math.random() * 8 - 4))) : null,
+      et: i <= todayIndex ? Math.max(0, currentValues.et + (Math.random() * 0.6 - 0.3)) : null,
+      dewPoint: i <= todayIndex ? currentValues.dewPoint + (Math.random() * 3 - 1.5) : null
     }));
-  }, [currentTemp, currentHumidity]);
+  }, [currentValues]);
+
+  const renderCharts = (data: any[], isLive = false) => (
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <ChartCard title="Temperatura" description={isLive ? "En vivo" : "Tendencia"} data={data} dataKey="temp" color="var(--color-temp)" unit="°C" type="area" />
+      <ChartCard title="Hum. Suelo" description={isLive ? "En vivo" : "Tendencia"} data={data} dataKey="humiditySoil" color="var(--color-humiditySoil)" unit="%" type="line" />
+      <ChartCard title="Hum. Aire" description={isLive ? "En vivo" : "Tendencia"} data={data} dataKey="humidityAir" color="var(--color-humidityAir)" unit="%" type="line" />
+      <ChartCard title="Punto Rocío" description={isLive ? "En vivo" : "Tendencia"} data={data} dataKey="dewPoint" color="var(--color-dewPoint)" unit="°C" type="area" />
+      <ChartCard title="Evapotransp." description={isLive ? "En vivo" : "Tendencia"} data={data} dataKey="et" color="var(--color-et)" unit=" mm" type="area" />
+    </div>
+  );
 
   return (
     <SidebarProvider>
@@ -147,24 +178,10 @@ export default function MonitoringPage() {
             <SidebarTrigger />
             <h1 className="text-xl font-bold">Analítica de Sensores</h1>
           </div>
-          <div className="flex items-center gap-3">
-             <Button variant="outline" size="sm" className="hidden md:flex">
-               <Download className="h-4 w-4 mr-2" /> Reporte
-             </Button>
-             <Badge variant={isOnline ? "default" : "secondary"} className="gap-1.5 py-1 px-3">
-              {isOnline ? (
-                <>
-                  <Wifi className="h-3.5 w-3.5 text-white animate-pulse" />
-                  Wokwi Conectado
-                </>
-              ) : (
-                <>
-                  <WifiOff className="h-3.5 w-3.5" />
-                  Desconectado
-                </>
-              )}
-            </Badge>
-          </div>
+          <Badge variant={isOnline ? "default" : "secondary"} className="gap-1.5 py-1 px-3">
+            {isOnline ? <Wifi className="h-3.5 w-3.5 text-white animate-pulse" /> : <WifiOff className="h-3.5 w-3.5" />}
+            {isOnline ? "Wokwi Conectado" : "Desconectado"}
+          </Badge>
         </header>
 
         <main className="flex-1 p-4 md:p-8 space-y-8">
@@ -172,96 +189,25 @@ export default function MonitoringPage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
               <div className="space-y-1">
                 <h2 className="text-2xl font-bold">Historial de Cultivo</h2>
-                <p className="text-muted-foreground text-sm">Monitoreo exacto de humedad_suelo y temperatura.</p>
+                <p className="text-muted-foreground text-sm">Monitoreo de 5 parámetros en tiempo real.</p>
               </div>
               <TabsList className="grid grid-cols-3 w-full md:w-[400px]">
-                <TabsTrigger value="live" className="gap-2">
-                  <Activity className="h-3.5 w-3.5" /> Vivo
-                </TabsTrigger>
-                <TabsTrigger value="today" className="gap-2">
-                  <Clock className="h-3.5 w-3.5" /> Hoy
-                </TabsTrigger>
-                <TabsTrigger value="week" className="gap-2">
-                  <CalendarDays className="h-3.5 w-3.5" /> Semana
-                </TabsTrigger>
+                <TabsTrigger value="live" className="gap-2"><Activity className="h-3.5 w-3.5" /> Vivo</TabsTrigger>
+                <TabsTrigger value="today" className="gap-2"><Clock className="h-3.5 w-3.5" /> Hoy</TabsTrigger>
+                <TabsTrigger value="week" className="gap-2"><CalendarDays className="h-3.5 w-3.5" /> Semana</TabsTrigger>
               </TabsList>
             </div>
 
-            <TabsContent value="live" className="space-y-6">
-              <div className="grid gap-6 md:grid-cols-2">
-                <ChartCard 
-                  title="Temperatura" 
-                  description="En tiempo real (°C)" 
-                  data={history} 
-                  dataKey="temp" 
-                  color="var(--color-temp)" 
-                  unit="°C"
-                  type="area"
-                />
-                <ChartCard 
-                  title="Humedad Suelo" 
-                  description="En tiempo real (%)" 
-                  data={history} 
-                  dataKey="humidity" 
-                  color="var(--color-humidity)" 
-                  unit="%"
-                  type="line"
-                />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="today" className="space-y-6">
-              <div className="grid gap-6 md:grid-cols-2">
-                <ChartCard 
-                  title="Hoy: Temperatura" 
-                  description="Tendencia diaria" 
-                  data={hourlyData} 
-                  dataKey="temp" 
-                  color="var(--color-temp)" 
-                  unit="°C"
-                  type="area"
-                />
-                <ChartCard 
-                  title="Hoy: Humedad Suelo" 
-                  description="Tendencia diaria" 
-                  data={hourlyData} 
-                  dataKey="humidity" 
-                  color="var(--color-humidity)" 
-                  unit="%"
-                  type="line"
-                />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="week" className="space-y-6">
-              <div className="grid gap-6 md:grid-cols-2">
-                <ChartCard 
-                  title="Semana: Temperatura" 
-                  description="Promedio semanal" 
-                  data={weeklyData} 
-                  dataKey="temp" 
-                  color="var(--color-temp)" 
-                  unit="°C"
-                  type="area"
-                />
-                <ChartCard 
-                  title="Semana: Humedad Suelo" 
-                  description="Promedio semanal" 
-                  data={weeklyData} 
-                  dataKey="humidity" 
-                  color="var(--color-humidity)" 
-                  unit="%"
-                  type="line"
-                />
-              </div>
-            </TabsContent>
+            <TabsContent value="live" className="space-y-6">{renderCharts(history, true)}</TabsContent>
+            <TabsContent value="today" className="space-y-6">{renderCharts(hourlyData)}</TabsContent>
+            <TabsContent value="week" className="space-y-6">{renderCharts(weeklyData)}</TabsContent>
           </Tabs>
 
           <Card className="border-none shadow-lg">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-primary" />
-                Resumen de Alertas
+                Alertas Recientes
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -272,7 +218,7 @@ export default function MonitoringPage() {
                   </div>
                 ) : (
                   events.map((item, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-white rounded-lg border border-primary/10 shadow-sm">
+                    <div key={i} className="flex items-center justify-between p-3 bg-white rounded-lg border border-primary/10 shadow-sm animate-in fade-in slide-in-from-right-4">
                       <div className="flex items-center gap-4">
                         <Badge variant="outline" className="font-mono text-[10px]">{item.time}</Badge>
                         <p className="text-sm font-medium">{item.event}</p>
@@ -291,26 +237,25 @@ export default function MonitoringPage() {
 }
 
 function ChartCard({ title, description, data, dataKey, color, unit, type }: any) {
+  const Icon = dataKey === 'temp' ? Thermometer : dataKey.includes('humidity') ? Droplets : dataKey === 'et' ? CloudRain : Snowflake;
+  const iconColor = dataKey === 'temp' ? 'text-orange-500' : dataKey.includes('Soil') ? 'text-blue-600' : dataKey.includes('Air') ? 'text-teal-500' : dataKey === 'et' ? 'text-purple-500' : 'text-cyan-500';
+
   return (
     <Card className="border-none shadow-lg overflow-hidden group">
-      <CardHeader className="pb-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-lg group-hover:text-primary transition-colors">{title}</CardTitle>
-            <CardDescription>{description}</CardDescription>
-          </div>
-          <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-            {dataKey === 'temp' ? <Thermometer className="h-4 w-4 text-orange-500" /> : <Droplets className="h-4 w-4 text-blue-500" />}
-          </div>
+      <CardHeader className="pb-0 flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="text-md group-hover:text-primary transition-colors">{title}</CardTitle>
+          <CardDescription className="text-[10px]">{description}</CardDescription>
         </div>
+        <Icon className={`h-5 w-5 ${iconColor}`} />
       </CardHeader>
       <CardContent>
-        <div className="h-[250px] w-full mt-6">
+        <div className="h-[200px] w-full mt-4">
           {data.length > 0 ? (
-            <ChartContainer config={chartConfig} className="h-full w-full aspect-auto">
+            <ChartContainer config={chartConfig} className="h-full w-full">
               <ResponsiveContainer width="100%" height="100%">
                 {type === 'area' ? (
-                  <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <AreaChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id={`color-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
@@ -318,26 +263,25 @@ function ChartCard({ title, description, data, dataKey, color, unit, type }: any
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                    <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
+                    <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 9 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9 }} />
                     <ChartTooltip content={<ChartTooltipContent />} />
-                    <Area type="monotone" dataKey={dataKey} stroke={color} fillOpacity={1} fill={`url(#color-${dataKey})`} strokeWidth={3} isAnimationActive={false} />
+                    <Area type="monotone" dataKey={dataKey} stroke={color} fillOpacity={1} fill={`url(#color-${dataKey})`} strokeWidth={2} isAnimationActive={false} />
                   </AreaChart>
                 ) : (
-                  <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <LineChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                    <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
+                    <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fontSize: 9 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9 }} />
                     <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={4} dot={{ fill: color, r: 4 }} activeDot={{ r: 6, strokeWidth: 0 }} isAnimationActive={false} />
+                    <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={3} dot={{ fill: color, r: 3 }} activeDot={{ r: 5 }} isAnimationActive={false} />
                   </LineChart>
                 )}
               </ResponsiveContainer>
             </ChartContainer>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-muted-foreground bg-muted/10 rounded-lg border-2 border-dashed">
-              <RefreshCw className="h-8 w-8 animate-spin-slow opacity-20 mb-2" />
-              <p className="text-sm italic">Esperando señal de Wokwi...</p>
+            <div className="h-full flex items-center justify-center bg-muted/10 rounded-lg">
+              <RefreshCw className="h-6 w-6 animate-spin-slow opacity-20" />
             </div>
           )}
         </div>
