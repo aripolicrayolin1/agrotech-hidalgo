@@ -119,10 +119,10 @@ export function SidebarNav() {
         <SidebarMenu>
           {!user && !loading ? (
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Entrar">
+              <SidebarMenuButton asChild tooltip={t('login')}>
                 <Link href="/login">
                   <LogIn className="h-5 w-5" />
-                  <span>Iniciar Sesión</span>
+                  <span>{t('login')}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -137,9 +137,9 @@ export function SidebarNav() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Salir" onClick={handleSignOut}>
+                <SidebarMenuButton tooltip={t('logout')} onClick={handleSignOut}>
                   <LogOut className="h-5 w-5" />
-                  <span>Salir</span>
+                  <span>{t('logout')}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </>
