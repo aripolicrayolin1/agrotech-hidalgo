@@ -2,15 +2,15 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// INSTRUCCIONES: Una vez que crees tu "App Web" en la consola de Firebase,
-// copia y pega aquí los valores del objeto firebaseConfig que te den.
+// Configuración real obtenida de la consola de Firebase
 const firebaseConfig = {
-  apiKey: "TU_API_KEY_AQUI", // Empieza con AIzaSy...
+  apiKey: "AIzaSyBWD6WwCUJLiKlbSgr0NYGppQtL3HnHpoM",
   authDomain: "studio-3066950614-ac5b0.firebaseapp.com",
+  databaseURL: "https://studio-3066950614-ac5b0-default-rtdb.firebaseio.com",
   projectId: "studio-3066950614-ac5b0",
-  storageBucket: "studio-3066950614-ac5b0.appspot.com",
+  storageBucket: "studio-3066950614-ac5b0.firebasestorage.app",
   messagingSenderId: "72338853613",
-  appId: "TU_APP_ID_AQUI" // Es algo como 1:72338853613:web:...
+  appId: "1:72338853613:web:5be71eb7d0c5685f8d46e4"
 };
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
